@@ -430,7 +430,7 @@ function CandidateCV() {
       setParsed(await parseCV(selected));
     } catch {
       setParsed(null);
-      setError("Le PDF s’affiche, mais son texte n’a pas pu être extrait.");
+      setError('Le PDF s’affiche, mais son texte n’a pas pu être extrait.');
     } finally {
       setLoading(false);
     }
@@ -466,7 +466,7 @@ function CandidateCV() {
           </button>
         </div>
       </div>
-      {file && url && (
+      {file && url && !parsed && (
         <section className="pdf-preview panel">
           <header>
             <div>
@@ -498,9 +498,15 @@ function CandidateCV() {
           <iframe title={`Aperçu de ${file.name}`} src={url} />
         </section>
       )}
-      {loading && <div className="cv-import-status"><I.LoaderCircle /> Analyse et structuration du CV…</div>}
+      {loading && (
+        <div className="cv-import-status">
+          <I.LoaderCircle /> Analyse et structuration du CV…
+        </div>
+      )}
       {error && <div className="cv-import-status error">{error}</div>}
-      {parsed && file && <ImportedCVSummary cv={parsed} file={file} />}
+      {parsed && file && (
+        <ImportedCVSummary cv={parsed} file={file} sourceUrl={url} />
+      )}
       <div className={`cv-layout ${parsed ? 'demo-hidden' : ''}`}>
         <aside className="cv-left">
           <section className="panel profile-card">

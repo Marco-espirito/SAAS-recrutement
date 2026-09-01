@@ -274,19 +274,22 @@ const Section = ({ s, skills }: { s: CVSectionData; skills: string[] }) => (
     )}
   </section>
 );
-export function ImportedCVSummary({ cv, file }: { cv: ParsedCV; file: File }) {
+export function ImportedCVSummary({
+  cv,
+  file,
+  sourceUrl,
+}: {
+  cv: ParsedCV;
+  file: File;
+  sourceUrl: string;
+}) {
   const initials = cv.name
       .split(/\s+/)
       .map((x) => x[0])
       .slice(0, 2)
       .join('')
       .toUpperCase(),
-    left = cv.sections.filter(
-      (s) => s.column === 'left' && s.key !== 'contact',
-    ),
-    main = cv.sections.filter(
-      (s) => s.column === 'main' && s.key !== 'contact',
-    );
+    sectionCount = cv.sections.length;
   return (
     <div className="imported-cv-layout">
       <aside className="imported-identity panel">
@@ -316,32 +319,24 @@ export function ImportedCVSummary({ cv, file }: { cv: ParsedCV; file: File }) {
         <hr />
         <small>Colonnes et rubriques détectées automatiquement.</small>
       </aside>
-      <article className="imported-paper panel">
-        <header>
-          <span>CV structuré</span>
-          <h1>{cv.name}</h1>
-          <h2>{cv.title}</h2>
-          <p>
-            {[cv.email, cv.phone, cv.linkedin].filter(Boolean).join('  ·  ')}
-          </p>
-        </header>
-        <div className="imported-columns">
-          <main>
-            {main.map((s, i) => (
-              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
-            ))}
-          </main>
-          <aside>
-            {left.map((s, i) => (
-              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
-            ))}
-          </aside>
+      <article className="imported-paper faithful-pdf panel">
+        <div className="faithful-pdf-head">
+          <span>
+            <I.FileCheck2 /> Aperçu original fidèle
+          </span>
+          <button onClick={() => window.open(sourceUrl, '_blank')}>
+            <I.ExternalLink /> Ouvrir en grand
+          </button>
         </div>
+        <iframe
+          title={`CV original de ${cv.name}`}
+          src={`${sourceUrl}#toolbar=0&navpanes=0&view=FitH`}
+        />
       </article>
       <aside className="import-insights">
         <section className="panel">
           <h3>Structure reconnue</h3>
-          <strong>{cv.sections.length}</strong>
+          <strong>{sectionCount}</strong>
           <p>
             rubriques détectées
             <br />
