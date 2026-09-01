@@ -1,30 +1,1259 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as I from 'lucide-react';
-import {ApplicationsPage,DocumentsPage,FollowupsPage,JobsPage,MatchingPage,Toast} from './candidate-pages';
-type Mode='candidate'|'admin';
-type CandidateTab='Tableau de bord'|'Mon CV'|'Analyse ATS'|"Offres d'emploi"|'Matching IA'|'Mes candidatures'|'Relances'|'Documents';
-const cNav=[[I.House,'Tableau de bord'],[I.FileText,'Mon CV'],[I.Target,'Analyse ATS'],[I.BriefcaseBusiness,"Offres d'emploi"],[I.Bot,'Matching IA'],[I.LayoutDashboard,'Mes candidatures'],[I.RefreshCw,'Relances'],[I.FileText,'Documents']];
-const aNav=[[I.House,'Tableau de bord'],[I.BriefcaseBusiness,'Offres'],[I.UserRound,'Candidats'],[I.Workflow,'Pipeline'],[I.CalendarDays,'Entretiens'],[I.Mail,'Emails & Automations'],[I.Users,'Clients'],[I.ChartNoAxesCombined,'Statistiques']];
-const jobs=[['A','Data Analyst','ACME Corp','92%'],['◆','Analyste Data BI','GreenTech','88%'],['◉','Data Engineer','TechFlow','85%'],['▥',"Chargé(e) d’études Data",'InnovData','75%'],['pb','Data Analyst – Marketing','People Business','68%']];
-const people=['Camille Dupont','Thomas Bernard','Sophie Martin','Lucas Moreau','Fatou Diop','Antoine Lefèvre','Inès Khaldi','Julien Petit','Claire Rousseau','Nicolas Garnier','Awa Traoré','Hugo Robert','Élodie Bernard','Mehdi Benali','Yanis Belkacem','Laura Simon'];
-function Sidebar({mode,setMode,tab,setTab}:{mode:Mode,setMode:(m:Mode)=>void,tab:CandidateTab,setTab:(t:CandidateTab)=>void}){let nav=mode==='candidate'?cNav:aNav;return <aside className="sidebar"><div className="logo"><span>◆</span><b>JobPilot</b></div><button className="mode" onClick={()=>setMode(mode==='candidate'?'admin':'candidate')}>{mode==='admin'?<I.ShieldCheck/>:<I.Sparkles/>}<b>{mode==='admin'?'ADMIN':'ESPACE CANDIDAT'}</b></button><nav>{nav.map(([X,s],n)=>{let Icon=X as typeof I.House;let label=s as string;return <button onClick={()=>mode==='candidate'&&setTab(label as CandidateTab)} className={mode==='candidate'?(tab===label?'active':''):(n?'':'active')} key={label}><Icon/><span>{label}</span></button>})}</nav><div className="sidefoot"><button><I.Settings/>Paramètres</button><button><I.CircleHelp/>{mode==='admin'?'Utilisateurs & rôles':'Aide & Support'}</button>{mode==='candidate'?<div className="premium"><b>Passez au Premium ✦</b><p>Accédez à plus d’offres, d’analyses et de relances IA.</p><button>♛ Découvrir Premium</button></div>:<div className="help"><b>Besoin d’aide ?</b><small>Consultez notre centre d’aide →</small></div>}</div></aside>}
-function Top({mode,setMode}:{mode:Mode,setMode:(m:Mode)=>void}){return <header className="top"><I.Menu/><label><I.Search/><input placeholder={mode==='candidate'?'Rechercher une offre, entreprise, compétence...':'Rechercher une offre, un candidat, un client...'}/></label><I.Gift/><span className="bell"><I.Bell/><i>{mode==='admin'?8:3}</i></span><button className="user" onClick={()=>setMode(mode==='candidate'?'admin':'candidate')}><i>{mode==='candidate'?'SM':'MK'}</i><span><b>{mode==='candidate'?'Sophie Martin':'Marc Kouassi'}</b><small>{mode==='candidate'?'Candidate Premium':'Admin'}</small></span><I.ChevronDown/></button></header>}
-const tones=['purple','green','blue','orange','purple'];
-function Stat({Icon,label,value,delta,n=0}:{Icon:any,label:string,value:string,delta:string,n?:number}){return <div className="stat"><i className={tones[n]}><Icon/></i><div><span>{label}</span><strong>{value}</strong><small>↗ {delta} cette semaine</small></div></div>}
-function Head({admin=false}:{admin?:boolean}){return <div className="head"><div><h1>{admin?'Tableau de bord administrateur':'Tableau de bord'} 👋</h1><p>{admin?'Vue d’ensemble de votre activité recrutement':'Bonjour Sophie, voici un aperçu de votre recherche d’emploi.'}</p></div><div><button>12 – 18 mai 2025 <I.ChevronDown/></button><button className="primary"><I.Plus/>{admin?'Nouvelle offre':'Nouvelle recherche'}</button></div></div>}
-function Chart(){return <div className="chart"><svg viewBox="0 0 500 100" preserveAspectRatio="none"><defs><linearGradient id="g" x2="0" y2="1"><stop stopColor="#683cf3" stopOpacity=".25"/><stop offset="1" stopColor="#683cf3" stopOpacity="0"/></linearGradient></defs><path d="M0 82L30 75 55 68 80 55 105 46 130 54 155 43 180 47 205 32 230 41 255 29 280 39 305 28 330 26 355 39 380 32 405 24 430 29 460 18 500 21V100H0Z" fill="url(#g)"/><polyline points="0,82 30,75 55,68 80,55 105,46 130,54 155,43 180,47 205,32 230,41 255,29 280,39 305,28 330,26 355,39 380,32 405,24 430,29 460,18 500,21" fill="none" stroke="#6338f5" strokeWidth="2.5"/></svg></div>}
-function Candidate(){let apps=[['Candidature envoyée','6'],['En cours','4'],['Entretien','2'],['Offre','1']];return <><Head/><section className="stats"><Stat Icon={I.Target} label="Offres recommandées" value="32" delta="+8"/><Stat Icon={I.Send} label="Candidatures envoyées" value="18" delta="+5" n={1}/><Stat Icon={I.CalendarDays} label="Entretiens" value="4" delta="+1" n={2}/><Stat Icon={I.RefreshCw} label="Taux de réponse" value="22%" delta="+6%" n={3}/><Stat Icon={I.Target} label="Score moyen de match" value="84%" delta="+5%" n={4}/></section><section className="two"><div className="panel jobs"><Title t="Matching IA" sub="Offres les plus pertinentes pour vous" link="Voir toutes les offres"/>{jobs.map((j,n)=><div className="job" key={j[1]}><i className={'co c'+n}>{j[0]}</i><div><b>{j[1]}</b><small>{j[2]} · Lyon, France · Hybride</small></div><strong className={'score s'+n}>{j[3]}</strong><em>CDI</em><em className={n<3?'new':''}>{n<3?'Nouveau':'1 sem.'}</em><I.Bookmark/></div>)}</div><div className="panel"><Title t="Mes candidatures" link="Voir le Kanban"/><div className="kanban">{apps.map((a,n)=><div className={'col x'+n} key={a[0]}><header><b>{a[0]}</b><strong>{a[1]}</strong></header><p>◈ ACME Corp<small>12 mai</small></p><p>◆ GreenTech<small>10 mai</small></p><button>＋</button></div>)}</div></div></section><section className="three"><div className="panel analysis"><Title t="Analyse de mon profil"/><div><strong className="ring">87%<small>Score global</small></strong><span><b>Compétences fortes</b><p className="good">SQL　Python　Power BI　Excel　Tableau</p><b>Compétences à développer</b><p className="warn">Data Modeling　BigQuery　AWS　Snowflake</p></span></div><a>Voir l’analyse complète →</a></div><Activity/><div className="panel market"><Title t="Tendances du marché" link="Voir le rapport complet"/><small>Salaire moyen – Data Analyst (France)</small><h2>46 000 € <small>/ an</small></h2><b className="pos">↑ 6 % vs période précédente</b><Chart/></div></section></>}
-function Title({t,sub,link}:{t:string,sub?:string,link?:string}){return <div className="title"><b>{t} {sub&&<small>– {sub}</small>}</b>{link&&<a>{link}</a>}</div>}
-function Activity(){return <div className="panel activity"><Title t="Activité récente"/>{['Invitation à un entretien chez ACME Corp','Candidature envoyée à GreenTech','Nouveau match : Data Engineer chez TechFlow','Relance envoyée à DataVision','Votre CV a été consulté par ACME Corp'].map((x,n)=><p key={x}><i>▣</i>{x}<small>Il y a {n+1} h</small></p>)}<a>Voir toute l’activité</a></div>}
-function CandidateCV(){const input=useRef<HTMLInputElement>(null);const[file,setFile]=useState<File|null>(null);const[url,setUrl]=useState('');useEffect(()=>()=>{if(url)URL.revokeObjectURL(url)},[url]);function importCV(files:FileList|null){let selected=files?.[0];if(!selected)return;if(selected.type!=='application/pdf'){alert('Sélectionnez un fichier PDF.');return}if(url)URL.revokeObjectURL(url);setFile(selected);setUrl(URL.createObjectURL(selected))}return <div className="cv-page"><div className="cv-head"><div><h1>Mon CV</h1><p>Gérez, améliorez et partagez votre CV pour booster vos candidatures.</p></div><div><input ref={input} hidden type="file" accept="application/pdf,.pdf" onChange={e=>importCV(e.target.files)}/><button data-live="true" onClick={()=>input.current?.click()}><I.Upload/>Importer un CV</button><button data-live="true" onClick={()=>window.print()}><I.Download/>Télécharger PDF</button><button className="primary"><I.Plus/>Créer une nouvelle version</button></div></div>{file&&url&&<section className="pdf-preview panel"><header><div><i>PDF</i><span><b>{file.name}</b><small>{(file.size/1024).toFixed(0)} Ko · Importé maintenant</small></span></div><div><button onClick={()=>window.open(url,'_blank')}><I.ExternalLink/>Ouvrir</button><button onClick={()=>{setFile(null);URL.revokeObjectURL(url);setUrl('')}}>Fermer ×</button></div></header><iframe title={`Aperçu de ${file.name}`} src={url}/></section>}<div className="cv-layout">
-  <aside className="cv-left"><section className="panel profile-card"><div className="portrait">SM<span>✎</span></div><div><h3>Sophie Martin</h3><b>Product Manager</b><small><I.MapPin/> Lyon, France</small></div><hr/><p><I.BriefcaseBusiness/><span>Poste recherché<b>Product Manager</b></span></p><p><I.MapPin/><span>Localisation<b>Lyon, France<br/>Télétravail partiel</b></span></p><p><I.Clock3/><span>Disponibilité<b>Immédiate</b></span></p><p><I.WalletCards/><span>Salaire souhaité<b>45k – 55k € brut/an</b></span></p><hr/><p><I.Link/><span>Portfolio<b className="link">sophiemartin.design</b></span></p><p><I.Link/><span>LinkedIn<b className="link">linkedin.com/in/sophie-martin</b></span></p></section><section className="panel keyword-card"><Title t="Mots-clés principaux" link="Modifier"/><div>{['Product Management','Roadmap','Agile','Data-driven','User Research','KPI','SQL','Dashboard','A/B Testing','Stakeholders'].map(x=><span key={x}>{x}</span>)}</div></section><section className="panel current-file"><b>Fichier actuel</b><p><i>PDF</i><span><b>{file?.name||'CV_Sophie_Martin_v3.pdf'}</b><small>{file?'Importé maintenant':'Mis à jour le 12 mai 2025'}<br/>{file?`${(file.size/1024).toFixed(0)} Ko`:'356 Ko'}</small></span></p></section></aside>
-  <article className="cv-paper"><header><h2>Sophie Martin</h2><h3>Product Manager</h3><p>✉ sophie.martin@email.com　 ·　 ☎ +33 6 12 34 56 78　 ·　 ⌖ Lyon, France</p><p>in linkedin.com/in/sophie-martin　 ·　 ✉ sophiemartin.design</p></header><div className="cv-columns"><div className="cv-main"><CVSection title="PROFIL"><p>Product Manager orientée impact, avec 5 ans d’expérience dans la conception et le lancement de produits digitaux centrés utilisateur. J’accompagne les équipes dans la définition de stratégies produit data-driven pour créer de la valeur et atteindre les objectifs business.</p></CVSection><CVSection title="EXPÉRIENCES"><Experience role="Product Manager" company="ACME Corp" date="Janv. 2022 – Aujourd’hui"/><Experience role="Product Owner" company="GreenTech" date="Juin 2020 – Déc. 2021"/><Experience role="Assistante Cheffe de Produit" company="InnovData" date="Sept. 2018 – Mai 2020"/></CVSection><CVSection title="FORMATION"><Experience role="Master 2 – Marketing & Management de l’Innovation" company="Université Jean Moulin Lyon 3" date="2016 – 2018"/><Experience role="Licence Économie & Gestion" company="Université Jean Moulin Lyon 3" date="2013 – 2016"/></CVSection></div><aside className="cv-side"><CVSection title="COMPÉTENCES"><ul>{['Gestion de produit','Roadmap & Priorisation','Analyse de données','SQL & Excel avancé','A/B Testing','Agile (Scrum)','Notion, Jira, Confluence','Product Analytics','User Research'].map(x=><li key={x}>{x}</li>)}</ul></CVSection><CVSection title="PROJETS"><b>Refonte Onboarding Utilisateur</b><p>Refonte complète du parcours d’onboarding, +22% d’activation utilisateur en 3 mois.</p><b>Dashboard Produit</b><p>Création d’un dashboard centralisé pour suivre les KPI produits.</p></CVSection><CVSection title="LANGUES"><b>Français</b><p>Langue maternelle</p><b>Anglais</b><p>Courant (C1)</p><b>Espagnol</b><p>Intermédiaire (B1)</p></CVSection></aside></div></article>
-  <aside className="cv-right"><section className="panel completeness"><Title t="Score de complétude"/><div><strong>92%</strong><span><b>Excellent !</b><p>Votre CV est très complet.<br/>Continuez ainsi.</p><a>Voir le détail →</a></span></div></section><section className="panel suggestions"><Title t="Suggestions IA" link="Nouveau"/>{[['✦','Ajoutez des résultats chiffrés à vos expériences','+8% d’impact potentiel'],['▣','Développez votre section “Projets”','+6% d’impact potentiel'],['□','Mentionnez vos outils clés en compétences','+4% d’impact potentiel']].map(x=><p key={x[1]}><i>{x[0]}</i><span><b>{x[1]}</b><small>{x[2]}</small></span></p>)}<a>Voir toutes les suggestions →</a></section><section className="panel versions"><Title t="Versions du CV" link="Voir toutes"/>{[['v3 (actuelle)','12 mai 2025'],['v2','28 avr. 2025'],['v1','10 mars 2025']].map(x=><p key={x[0]}><b>{x[0]}</b><small>{x[1]}　 Sophie Martin</small><i>⋮</i></p>)}</section><section className="panel quick"><Title t="Actions rapides"/><button><I.Target/><span><b>Optimiser pour une offre</b><small>Adaptez votre CV à une offre spécifique</small></span>›</button><button><I.Share2/><span><b>Partager mon CV</b><small>Générez un lien partageable</small></span>›</button></section></aside>
- </div></div>}
-function CandidateATS(){let criteria=[['Format','92%','Excellent','green'],['Lisibilité','78%','Bon','blue'],['Mots-clés','76%','Bon','orange'],['Structure','88%','Très bon','purple'],['Pertinence','81%','Très bon','green']];let found=['SQL','Python','Tableau','Power BI','Excel','BigQuery','Google Analytics','ETL','Looker','Data Visualisation','A/B Testing','KPI','Dashboards','Reporting','+14'];let missing=['Snowflake','dbt','Airflow','Azure Synapse','Machine Learning','Data Governance','Storytelling','Agile'];return <div className="ats-page"><div className="cv-head ats-head"><div><h1>Analyse ATS de mon CV</h1><p>Voici l’analyse de votre CV <b>“Sophie Martin - Data Analyst.pdf”</b></p></div><div><button><I.Download/>Télécharger le rapport</button><button className="primary"><I.Sparkles/>Optimiser mon CV</button></div></div><div className="ats-layout"><div className="ats-main"><section className="panel ats-overview"><Title t="Score ATS global"/><div className="ats-overview-body"><div className="ats-gauge"><strong>82%</strong><b>Très bon</b><small>⌃ +12%　vs analyse précédente</small><p>ⓘ Votre CV a de fortes chances de passer les filtres ATS et d’attirer l’attention des recruteurs.</p></div><div className="criteria">{criteria.map((c,n)=><div className="criterion" key={c[0]}><i className={c[3]}>{[<I.ClipboardCheck key="a"/>,<I.ListChecks key="b"/>,<I.KeyRound key="c"/>,<I.LayoutGrid key="d"/>,<I.Target key="e"/>][n]}</i><b>{c[0]}</b><span><em className={c[3]} style={{width:c[1]}}/></span><strong>{c[1]}</strong><small>{c[2]}</small></div>)}</div></div></section><div className="ats-pairs"><section className="panel ats-keywords good-box"><Title t="✓ Mots-clés détectés" link="28"/><div>{found.map(x=><span key={x}>{x}</span>)}</div></section><section className="panel ats-keywords missing-box"><Title t="⚠ Mots-clés manquants" link="8"/><div>{missing.map(x=><span key={x}>{x}</span>)}</div></section><section className="panel ats-list"><Title t="✓ Points forts"/><ul>{['Format de CV moderne et bien structuré','Excellente utilisation des mots-clés techniques','Expérience quantifiée avec des résultats concrets','Parcours cohérent et lisible','Bon équilibre entre hard skills et soft skills'].map(x=><li key={x}>✓　{x}</li>)}</ul><I.ThumbsUp/></section><section className="panel ats-list recommendations"><Title t="⚠ Recommandations prioritaires"/><ol><li>Ajouter des compétences manquantes importantes (Snowflake, dbt)</li><li>Renforcer la section outils & technologies</li><li>Inclure plus de résultats chiffrés et d’impact business</li></ol><a>Voir toutes les recommandations　→</a></section></div><footer className="ats-foot">♢　Analyse basée sur les meilleures pratiques ATS et les données du marché.<span>Dernière analyse : 18 mai 2025 à 10:24</span></footer></div><aside className="panel ats-compare"><Title t="Comparer à une offre"/><div className="offer-head"><i><I.BriefcaseBusiness/></i><span><b>Data Analyst Sénior</b><small>ACME Corp　•　Paris, France</small></span><button>Changer d’offre</button></div><h5>Correspondance globale</h5><div className="match-summary"><strong>78%</strong><span><b>Bonne correspondance</b><small>+9%　vs analyse précédente</small></span></div><h5>Compétences requises</h5><div className="required">{['SQL','Python','Tableau','Power BI','BigQuery','Git','Excel avancé','Statistiques','Data Visualisation'].map(x=><span key={x}>• {x}</span>)}</div><h5>Détail de la correspondance</h5><div className="match-details">{[['Compétences techniques','82%'],['Outils & logiciels','75%'],['Expérience','70%'],['Formation','90%'],['Secteur','65%']].map((x,n)=><p key={x[0]}><i>{n+1}</i><b>{x[0]}</b><span><em style={{width:x[1]}}/></span><strong>{x[1]}</strong></p>)}</div><button className="primary full"><I.Sparkles/>Générer une version adaptée</button><a>Voir le détail complet　→</a></aside></div></div>}
-function CVSection({title,children}:{title:string,children:React.ReactNode}){return <section className="cv-section"><h4>{title}</h4>{children}</section>}
-function Experience({role,company,date}:{role:string,company:string,date:string}){return <div className="experience"><b>{role}</b><span>{date}</span><strong>{company}</strong><ul><li>Pilotage de la roadmap produit et coordination d’une équipe pluridisciplinaire.</li><li>Amélioration de l’engagement produit grâce à l’analyse des données.</li></ul></div>}
-const cols=[['Nouveaux','142','blue'],['Préqualification','68','blue'],['Entretien','36','orange'],['Shortlist','18','violet'],['Offre','7','green'],['Recruté','9','green']];
-function Admin(){return <><Head admin/><section className="stats"><Stat Icon={I.BriefcaseBusiness} label="Offres actives" value="24" delta="+3"/><Stat Icon={I.Users} label="Candidats" value="1 248" delta="+128" n={1}/><Stat Icon={I.CalendarDays} label="Entretiens planifiés" value="36" delta="+6" n={2}/><Stat Icon={I.ChartNoAxesCombined} label="Taux de conversion" value="18,7%" delta="+2,3 pts" n={3}/><Stat Icon={I.Clock3} label="Temps moyen de recrutement" value="24 jours" delta="−3 jours" n={4}/></section><div className="panel pipeline"><Title t="Pipeline de recrutement" link="Voir tout le pipeline →"/><div className="pipecols">{cols.map((c,n)=><div className={'pipe '+c[2]} key={c[0]}><header><b>{c[0]}</b><strong>{c[1]}</strong></header>{people.slice(n*3,n*3+3).map((p,k)=><p key={p}><i>{p.split(' ').map(x=>x[0]).join('')}</i><span><b>{p}</b><small>{['Data Analyst','Data Engineer','Product Manager'][k]}<br/>Score {72+k*6}%</small></span></p>)}<button>+ {Math.max(+c[1]-3,5)} autres</button></div>)}</div></div><section className="adminthree"><div className="panel recent"><Title t="Activité récente" link="Voir toute l’activité →"/>{['Nouvelle offre publiée','Entretien planifié','Email envoyé','Nouveau candidat ajouté','Candidat recruté'].map((x,n)=><p key={x}><i>▣</i><span><b>{x}</b><small>{people[n+6]} – Data Engineer</small></span><small>Il y a {n+1}h</small></p>)}</div><div className="panel candidates"><Title t="Top candidats" link="Voir tous les candidats →"/>{people.slice(9,14).map((p,n)=><p key={p}><i>{n+1}</i><b className="avatar">{p.split(' ').map(x=>x[0]).join('')}</b><span><b>{p}</b><small>Data Scientist – ACME Corp</small></span><strong>{92-n*4}%</strong></p>)}</div><div className="panel recruit"><Title t="Analyse des recrutements" link="Voir le rapport complet →"/><div>{[['Candidats entrants','342'],['Entretiens réalisés','78'],['Offres acceptées','14'],['Recrutements','9']].map(x=><span key={x[0]}>{x[0]}<b>{x[1]} <i>+18%</i></b></span>)}</div><Chart/></div></section></>}
-export default function Home(){let[mode,setMode]=useState<Mode>('candidate');let[tab,setTab]=useState<CandidateTab>('Tableau de bord');let[notice,setNotice]=useState('');let[external,setExternal]=useState<any[]>([]);function toast(x:string){setNotice(x);window.setTimeout(()=>setNotice(''),2600)}function applied(j:any){setExternal(v=>[...v,{id:10000+j.id,company:j.company,role:j.title,stage:'Envoyée',score:j.match}])}function legacyAction(e:React.MouseEvent){if(!['Tableau de bord','Mon CV','Analyse ATS'].includes(tab))return;let el=(e.target as HTMLElement).closest('button,a') as HTMLElement|null;if(!el||el.dataset.live==='true')return;let text=(el.textContent||'').trim();if(el.tagName==='A'){if(text.includes('offres'))setTab("Offres d'emploi");else if(text.toLowerCase().includes('kanban'))setTab('Mes candidatures');else if(text.toLowerCase().includes('analyse'))setTab('Analyse ATS');else toast(`${text} ouvert`);return}if(text.includes('Télécharger')){let blob=new Blob([`Rapport JobPilot\nUtilisateur : Sophie Martin\nÉcran : ${tab}\nGénéré le ${new Date().toLocaleDateString('fr-FR')}`],{type:'text/plain'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`JobPilot-${tab.replaceAll(' ','-')}.txt`;a.click();URL.revokeObjectURL(a.href);toast('Téléchargement lancé')}else if(text.includes('Optimiser')||text.includes('Générer'))toast('Version personnalisée générée avec les données du profil');else if(text.includes('nouvelle version'))toast('Nouvelle version du CV créée');else if(text.includes('Nouvelle recherche'))setTab("Offres d'emploi");else if(text.includes('Changer'))toast('Sélecteur d’offre ouvert');else if(text.includes('Premium'))toast('Page des offres Premium ouverte');else toast(`${text||'Action'} activé`)}let candidatePage=tab==='Mon CV'?<CandidateCV/>:tab==='Analyse ATS'?<CandidateATS/>:tab==="Offres d'emploi"?<JobsPage toast={toast} onApplied={applied}/>:tab==='Matching IA'?<MatchingPage toast={toast} onApplied={applied}/>:tab==='Mes candidatures'?<ApplicationsPage toast={toast} external={external}/>:tab==='Relances'?<FollowupsPage toast={toast}/>:tab==='Documents'?<DocumentsPage toast={toast}/>:<Candidate/>;return <div><Sidebar mode={mode} setMode={setMode} tab={tab} setTab={setTab}/><Top mode={mode} setMode={setMode}/><main onClickCapture={legacyAction}>{mode==='candidate'?candidatePage:<Admin/>}</main><Toast message={notice}/><button className="float" onClick={()=>setMode(mode==='candidate'?'admin':'candidate')}>{mode==='candidate'?'Voir dashboard Admin':'Voir dashboard Candidat'}</button></div>}
+import {
+  ApplicationsPage,
+  DocumentsPage,
+  FollowupsPage,
+  JobsPage,
+  MatchingPage,
+  Toast,
+} from './candidate-pages';
+import { ImportedCVSummary, parseCV, type ParsedCV } from './cv-import';
+type Mode = 'candidate' | 'admin';
+type CandidateTab =
+  | 'Tableau de bord'
+  | 'Mon CV'
+  | 'Analyse ATS'
+  | "Offres d'emploi"
+  | 'Matching IA'
+  | 'Mes candidatures'
+  | 'Relances'
+  | 'Documents';
+const cNav = [
+  [I.House, 'Tableau de bord'],
+  [I.FileText, 'Mon CV'],
+  [I.Target, 'Analyse ATS'],
+  [I.BriefcaseBusiness, "Offres d'emploi"],
+  [I.Bot, 'Matching IA'],
+  [I.LayoutDashboard, 'Mes candidatures'],
+  [I.RefreshCw, 'Relances'],
+  [I.FileText, 'Documents'],
+];
+const aNav = [
+  [I.House, 'Tableau de bord'],
+  [I.BriefcaseBusiness, 'Offres'],
+  [I.UserRound, 'Candidats'],
+  [I.Workflow, 'Pipeline'],
+  [I.CalendarDays, 'Entretiens'],
+  [I.Mail, 'Emails & Automations'],
+  [I.Users, 'Clients'],
+  [I.ChartNoAxesCombined, 'Statistiques'],
+];
+const jobs = [
+  ['A', 'Data Analyst', 'ACME Corp', '92%'],
+  ['◆', 'Analyste Data BI', 'GreenTech', '88%'],
+  ['◉', 'Data Engineer', 'TechFlow', '85%'],
+  ['▥', 'Chargé(e) d’études Data', 'InnovData', '75%'],
+  ['pb', 'Data Analyst – Marketing', 'People Business', '68%'],
+];
+const people = [
+  'Camille Dupont',
+  'Thomas Bernard',
+  'Sophie Martin',
+  'Lucas Moreau',
+  'Fatou Diop',
+  'Antoine Lefèvre',
+  'Inès Khaldi',
+  'Julien Petit',
+  'Claire Rousseau',
+  'Nicolas Garnier',
+  'Awa Traoré',
+  'Hugo Robert',
+  'Élodie Bernard',
+  'Mehdi Benali',
+  'Yanis Belkacem',
+  'Laura Simon',
+];
+function Sidebar({
+  mode,
+  setMode,
+  tab,
+  setTab,
+}: {
+  mode: Mode;
+  setMode: (m: Mode) => void;
+  tab: CandidateTab;
+  setTab: (t: CandidateTab) => void;
+}) {
+  let nav = mode === 'candidate' ? cNav : aNav;
+  return (
+    <aside className="sidebar">
+      <div className="logo">
+        <span>◆</span>
+        <b>JobPilot</b>
+      </div>
+      <button
+        className="mode"
+        onClick={() => setMode(mode === 'candidate' ? 'admin' : 'candidate')}
+      >
+        {mode === 'admin' ? <I.ShieldCheck /> : <I.Sparkles />}
+        <b>{mode === 'admin' ? 'ADMIN' : 'ESPACE CANDIDAT'}</b>
+      </button>
+      <nav>
+        {nav.map(([X, s], n) => {
+          let Icon = X as typeof I.House;
+          let label = s as string;
+          return (
+            <button
+              onClick={() =>
+                mode === 'candidate' && setTab(label as CandidateTab)
+              }
+              className={
+                mode === 'candidate'
+                  ? tab === label
+                    ? 'active'
+                    : ''
+                  : n
+                    ? ''
+                    : 'active'
+              }
+              key={label}
+            >
+              <Icon />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div className="sidefoot">
+        <button>
+          <I.Settings />
+          Paramètres
+        </button>
+        <button>
+          <I.CircleHelp />
+          {mode === 'admin' ? 'Utilisateurs & rôles' : 'Aide & Support'}
+        </button>
+        {mode === 'candidate' ? (
+          <div className="premium">
+            <b>Passez au Premium ✦</b>
+            <p>Accédez à plus d’offres, d’analyses et de relances IA.</p>
+            <button>♛ Découvrir Premium</button>
+          </div>
+        ) : (
+          <div className="help">
+            <b>Besoin d’aide ?</b>
+            <small>Consultez notre centre d’aide →</small>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+function Top({ mode, setMode }: { mode: Mode; setMode: (m: Mode) => void }) {
+  return (
+    <header className="top">
+      <I.Menu />
+      <label>
+        <I.Search />
+        <input
+          placeholder={
+            mode === 'candidate'
+              ? 'Rechercher une offre, entreprise, compétence...'
+              : 'Rechercher une offre, un candidat, un client...'
+          }
+        />
+      </label>
+      <I.Gift />
+      <span className="bell">
+        <I.Bell />
+        <i>{mode === 'admin' ? 8 : 3}</i>
+      </span>
+      <button
+        className="user"
+        onClick={() => setMode(mode === 'candidate' ? 'admin' : 'candidate')}
+      >
+        <i>{mode === 'candidate' ? 'SM' : 'MK'}</i>
+        <span>
+          <b>{mode === 'candidate' ? 'Sophie Martin' : 'Marc Kouassi'}</b>
+          <small>{mode === 'candidate' ? 'Candidate Premium' : 'Admin'}</small>
+        </span>
+        <I.ChevronDown />
+      </button>
+    </header>
+  );
+}
+const tones = ['purple', 'green', 'blue', 'orange', 'purple'];
+function Stat({
+  Icon,
+  label,
+  value,
+  delta,
+  n = 0,
+}: {
+  Icon: any;
+  label: string;
+  value: string;
+  delta: string;
+  n?: number;
+}) {
+  return (
+    <div className="stat">
+      <i className={tones[n]}>
+        <Icon />
+      </i>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        <small>↗ {delta} cette semaine</small>
+      </div>
+    </div>
+  );
+}
+function Head({ admin = false }: { admin?: boolean }) {
+  return (
+    <div className="head">
+      <div>
+        <h1>
+          {admin ? 'Tableau de bord administrateur' : 'Tableau de bord'} 👋
+        </h1>
+        <p>
+          {admin
+            ? 'Vue d’ensemble de votre activité recrutement'
+            : 'Bonjour Sophie, voici un aperçu de votre recherche d’emploi.'}
+        </p>
+      </div>
+      <div>
+        <button>
+          12 – 18 mai 2025 <I.ChevronDown />
+        </button>
+        <button className="primary">
+          <I.Plus />
+          {admin ? 'Nouvelle offre' : 'Nouvelle recherche'}
+        </button>
+      </div>
+    </div>
+  );
+}
+function Chart() {
+  return (
+    <div className="chart">
+      <svg viewBox="0 0 500 100" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="g" x2="0" y2="1">
+            <stop stopColor="#683cf3" stopOpacity=".25" />
+            <stop offset="1" stopColor="#683cf3" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M0 82L30 75 55 68 80 55 105 46 130 54 155 43 180 47 205 32 230 41 255 29 280 39 305 28 330 26 355 39 380 32 405 24 430 29 460 18 500 21V100H0Z"
+          fill="url(#g)"
+        />
+        <polyline
+          points="0,82 30,75 55,68 80,55 105,46 130,54 155,43 180,47 205,32 230,41 255,29 280,39 305,28 330,26 355,39 380,32 405,24 430,29 460,18 500,21"
+          fill="none"
+          stroke="#6338f5"
+          strokeWidth="2.5"
+        />
+      </svg>
+    </div>
+  );
+}
+function Candidate() {
+  let apps = [
+    ['Candidature envoyée', '6'],
+    ['En cours', '4'],
+    ['Entretien', '2'],
+    ['Offre', '1'],
+  ];
+  return (
+    <>
+      <Head />
+      <section className="stats">
+        <Stat
+          Icon={I.Target}
+          label="Offres recommandées"
+          value="32"
+          delta="+8"
+        />
+        <Stat
+          Icon={I.Send}
+          label="Candidatures envoyées"
+          value="18"
+          delta="+5"
+          n={1}
+        />
+        <Stat
+          Icon={I.CalendarDays}
+          label="Entretiens"
+          value="4"
+          delta="+1"
+          n={2}
+        />
+        <Stat
+          Icon={I.RefreshCw}
+          label="Taux de réponse"
+          value="22%"
+          delta="+6%"
+          n={3}
+        />
+        <Stat
+          Icon={I.Target}
+          label="Score moyen de match"
+          value="84%"
+          delta="+5%"
+          n={4}
+        />
+      </section>
+      <section className="two">
+        <div className="panel jobs">
+          <Title
+            t="Matching IA"
+            sub="Offres les plus pertinentes pour vous"
+            link="Voir toutes les offres"
+          />
+          {jobs.map((j, n) => (
+            <div className="job" key={j[1]}>
+              <i className={'co c' + n}>{j[0]}</i>
+              <div>
+                <b>{j[1]}</b>
+                <small>{j[2]} · Lyon, France · Hybride</small>
+              </div>
+              <strong className={'score s' + n}>{j[3]}</strong>
+              <em>CDI</em>
+              <em className={n < 3 ? 'new' : ''}>
+                {n < 3 ? 'Nouveau' : '1 sem.'}
+              </em>
+              <I.Bookmark />
+            </div>
+          ))}
+        </div>
+        <div className="panel">
+          <Title t="Mes candidatures" link="Voir le Kanban" />
+          <div className="kanban">
+            {apps.map((a, n) => (
+              <div className={'col x' + n} key={a[0]}>
+                <header>
+                  <b>{a[0]}</b>
+                  <strong>{a[1]}</strong>
+                </header>
+                <p>
+                  ◈ ACME Corp<small>12 mai</small>
+                </p>
+                <p>
+                  ◆ GreenTech<small>10 mai</small>
+                </p>
+                <button>＋</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="three">
+        <div className="panel analysis">
+          <Title t="Analyse de mon profil" />
+          <div>
+            <strong className="ring">
+              87%<small>Score global</small>
+            </strong>
+            <span>
+              <b>Compétences fortes</b>
+              <p className="good">SQL　Python　Power BI　Excel　Tableau</p>
+              <b>Compétences à développer</b>
+              <p className="warn">Data Modeling　BigQuery　AWS　Snowflake</p>
+            </span>
+          </div>
+          <a>Voir l’analyse complète →</a>
+        </div>
+        <Activity />
+        <div className="panel market">
+          <Title t="Tendances du marché" link="Voir le rapport complet" />
+          <small>Salaire moyen – Data Analyst (France)</small>
+          <h2>
+            46 000 € <small>/ an</small>
+          </h2>
+          <b className="pos">↑ 6 % vs période précédente</b>
+          <Chart />
+        </div>
+      </section>
+    </>
+  );
+}
+function Title({ t, sub, link }: { t: string; sub?: string; link?: string }) {
+  return (
+    <div className="title">
+      <b>
+        {t} {sub && <small>– {sub}</small>}
+      </b>
+      {link && <a>{link}</a>}
+    </div>
+  );
+}
+function Activity() {
+  return (
+    <div className="panel activity">
+      <Title t="Activité récente" />
+      {[
+        'Invitation à un entretien chez ACME Corp',
+        'Candidature envoyée à GreenTech',
+        'Nouveau match : Data Engineer chez TechFlow',
+        'Relance envoyée à DataVision',
+        'Votre CV a été consulté par ACME Corp',
+      ].map((x, n) => (
+        <p key={x}>
+          <i>▣</i>
+          {x}
+          <small>Il y a {n + 1} h</small>
+        </p>
+      ))}
+      <a>Voir toute l’activité</a>
+    </div>
+  );
+}
+function CandidateCV() {
+  const input = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState('');
+  const [parsed, setParsed] = useState<ParsedCV | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(
+    () => () => {
+      if (url) URL.revokeObjectURL(url);
+    },
+    [url],
+  );
+  async function importCV(files: FileList | null) {
+    let selected = files?.[0];
+    if (!selected) return;
+    if (selected.type !== 'application/pdf') {
+      alert('Sélectionnez un fichier PDF.');
+      return;
+    }
+    if (url) URL.revokeObjectURL(url);
+    setFile(selected);
+    setUrl(URL.createObjectURL(selected));
+    setLoading(true);
+    setError('');
+    try {
+      setParsed(await parseCV(selected));
+    } catch {
+      setParsed(null);
+      setError("Le PDF s’affiche, mais son texte n’a pas pu être extrait.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <div className="cv-page">
+      <div className="cv-head">
+        <div>
+          <h1>Mon CV</h1>
+          <p>
+            Gérez, améliorez et partagez votre CV pour booster vos candidatures.
+          </p>
+        </div>
+        <div>
+          <input
+            ref={input}
+            hidden
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(e) => importCV(e.target.files)}
+          />
+          <button data-live="true" onClick={() => input.current?.click()}>
+            <I.Upload />
+            Importer un CV
+          </button>
+          <button data-live="true" onClick={() => window.print()}>
+            <I.Download />
+            Télécharger PDF
+          </button>
+          <button className="primary">
+            <I.Plus />
+            Créer une nouvelle version
+          </button>
+        </div>
+      </div>
+      {file && url && (
+        <section className="pdf-preview panel">
+          <header>
+            <div>
+              <i>PDF</i>
+              <span>
+                <b>{file.name}</b>
+                <small>
+                  {(file.size / 1024).toFixed(0)} Ko · Importé maintenant
+                </small>
+              </span>
+            </div>
+            <div>
+              <button onClick={() => window.open(url, '_blank')}>
+                <I.ExternalLink />
+                Ouvrir
+              </button>
+              <button
+                onClick={() => {
+                  setFile(null);
+                  setParsed(null);
+                  URL.revokeObjectURL(url);
+                  setUrl('');
+                }}
+              >
+                Fermer ×
+              </button>
+            </div>
+          </header>
+          <iframe title={`Aperçu de ${file.name}`} src={url} />
+        </section>
+      )}
+      {loading && <div className="cv-import-status"><I.LoaderCircle /> Analyse et structuration du CV…</div>}
+      {error && <div className="cv-import-status error">{error}</div>}
+      {parsed && file && <ImportedCVSummary cv={parsed} file={file} />}
+      <div className={`cv-layout ${parsed ? 'demo-hidden' : ''}`}>
+        <aside className="cv-left">
+          <section className="panel profile-card">
+            <div className="portrait">
+              SM<span>✎</span>
+            </div>
+            <div>
+              <h3>Sophie Martin</h3>
+              <b>Product Manager</b>
+              <small>
+                <I.MapPin /> Lyon, France
+              </small>
+            </div>
+            <hr />
+            <p>
+              <I.BriefcaseBusiness />
+              <span>
+                Poste recherché<b>Product Manager</b>
+              </span>
+            </p>
+            <p>
+              <I.MapPin />
+              <span>
+                Localisation
+                <b>
+                  Lyon, France
+                  <br />
+                  Télétravail partiel
+                </b>
+              </span>
+            </p>
+            <p>
+              <I.Clock3 />
+              <span>
+                Disponibilité<b>Immédiate</b>
+              </span>
+            </p>
+            <p>
+              <I.WalletCards />
+              <span>
+                Salaire souhaité<b>45k – 55k € brut/an</b>
+              </span>
+            </p>
+            <hr />
+            <p>
+              <I.Link />
+              <span>
+                Portfolio<b className="link">sophiemartin.design</b>
+              </span>
+            </p>
+            <p>
+              <I.Link />
+              <span>
+                LinkedIn<b className="link">linkedin.com/in/sophie-martin</b>
+              </span>
+            </p>
+          </section>
+          <section className="panel keyword-card">
+            <Title t="Mots-clés principaux" link="Modifier" />
+            <div>
+              {[
+                'Product Management',
+                'Roadmap',
+                'Agile',
+                'Data-driven',
+                'User Research',
+                'KPI',
+                'SQL',
+                'Dashboard',
+                'A/B Testing',
+                'Stakeholders',
+              ].map((x) => (
+                <span key={x}>{x}</span>
+              ))}
+            </div>
+          </section>
+          <section className="panel current-file">
+            <b>Fichier actuel</b>
+            <p>
+              <i>PDF</i>
+              <span>
+                <b>{file?.name || 'CV_Sophie_Martin_v3.pdf'}</b>
+                <small>
+                  {file ? 'Importé maintenant' : 'Mis à jour le 12 mai 2025'}
+                  <br />
+                  {file ? `${(file.size / 1024).toFixed(0)} Ko` : '356 Ko'}
+                </small>
+              </span>
+            </p>
+          </section>
+        </aside>
+        <article className="cv-paper">
+          <header>
+            <h2>Sophie Martin</h2>
+            <h3>Product Manager</h3>
+            <p>
+              ✉ sophie.martin@email.com　 ·　 ☎ +33 6 12 34 56 78　 ·　 ⌖ Lyon,
+              France
+            </p>
+            <p>in linkedin.com/in/sophie-martin　 ·　 ✉ sophiemartin.design</p>
+          </header>
+          <div className="cv-columns">
+            <div className="cv-main">
+              <CVSection title="PROFIL">
+                <p>
+                  Product Manager orientée impact, avec 5 ans d’expérience dans
+                  la conception et le lancement de produits digitaux centrés
+                  utilisateur. J’accompagne les équipes dans la définition de
+                  stratégies produit data-driven pour créer de la valeur et
+                  atteindre les objectifs business.
+                </p>
+              </CVSection>
+              <CVSection title="EXPÉRIENCES">
+                <Experience
+                  role="Product Manager"
+                  company="ACME Corp"
+                  date="Janv. 2022 – Aujourd’hui"
+                />
+                <Experience
+                  role="Product Owner"
+                  company="GreenTech"
+                  date="Juin 2020 – Déc. 2021"
+                />
+                <Experience
+                  role="Assistante Cheffe de Produit"
+                  company="InnovData"
+                  date="Sept. 2018 – Mai 2020"
+                />
+              </CVSection>
+              <CVSection title="FORMATION">
+                <Experience
+                  role="Master 2 – Marketing & Management de l’Innovation"
+                  company="Université Jean Moulin Lyon 3"
+                  date="2016 – 2018"
+                />
+                <Experience
+                  role="Licence Économie & Gestion"
+                  company="Université Jean Moulin Lyon 3"
+                  date="2013 – 2016"
+                />
+              </CVSection>
+            </div>
+            <aside className="cv-side">
+              <CVSection title="COMPÉTENCES">
+                <ul>
+                  {[
+                    'Gestion de produit',
+                    'Roadmap & Priorisation',
+                    'Analyse de données',
+                    'SQL & Excel avancé',
+                    'A/B Testing',
+                    'Agile (Scrum)',
+                    'Notion, Jira, Confluence',
+                    'Product Analytics',
+                    'User Research',
+                  ].map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              </CVSection>
+              <CVSection title="PROJETS">
+                <b>Refonte Onboarding Utilisateur</b>
+                <p>
+                  Refonte complète du parcours d’onboarding, +22% d’activation
+                  utilisateur en 3 mois.
+                </p>
+                <b>Dashboard Produit</b>
+                <p>
+                  Création d’un dashboard centralisé pour suivre les KPI
+                  produits.
+                </p>
+              </CVSection>
+              <CVSection title="LANGUES">
+                <b>Français</b>
+                <p>Langue maternelle</p>
+                <b>Anglais</b>
+                <p>Courant (C1)</p>
+                <b>Espagnol</b>
+                <p>Intermédiaire (B1)</p>
+              </CVSection>
+            </aside>
+          </div>
+        </article>
+        <aside className="cv-right">
+          <section className="panel completeness">
+            <Title t="Score de complétude" />
+            <div>
+              <strong>92%</strong>
+              <span>
+                <b>Excellent !</b>
+                <p>
+                  Votre CV est très complet.
+                  <br />
+                  Continuez ainsi.
+                </p>
+                <a>Voir le détail →</a>
+              </span>
+            </div>
+          </section>
+          <section className="panel suggestions">
+            <Title t="Suggestions IA" link="Nouveau" />
+            {[
+              [
+                '✦',
+                'Ajoutez des résultats chiffrés à vos expériences',
+                '+8% d’impact potentiel',
+              ],
+              [
+                '▣',
+                'Développez votre section “Projets”',
+                '+6% d’impact potentiel',
+              ],
+              [
+                '□',
+                'Mentionnez vos outils clés en compétences',
+                '+4% d’impact potentiel',
+              ],
+            ].map((x) => (
+              <p key={x[1]}>
+                <i>{x[0]}</i>
+                <span>
+                  <b>{x[1]}</b>
+                  <small>{x[2]}</small>
+                </span>
+              </p>
+            ))}
+            <a>Voir toutes les suggestions →</a>
+          </section>
+          <section className="panel versions">
+            <Title t="Versions du CV" link="Voir toutes" />
+            {[
+              ['v3 (actuelle)', '12 mai 2025'],
+              ['v2', '28 avr. 2025'],
+              ['v1', '10 mars 2025'],
+            ].map((x) => (
+              <p key={x[0]}>
+                <b>{x[0]}</b>
+                <small>{x[1]}　 Sophie Martin</small>
+                <i>⋮</i>
+              </p>
+            ))}
+          </section>
+          <section className="panel quick">
+            <Title t="Actions rapides" />
+            <button>
+              <I.Target />
+              <span>
+                <b>Optimiser pour une offre</b>
+                <small>Adaptez votre CV à une offre spécifique</small>
+              </span>
+              ›
+            </button>
+            <button>
+              <I.Share2 />
+              <span>
+                <b>Partager mon CV</b>
+                <small>Générez un lien partageable</small>
+              </span>
+              ›
+            </button>
+          </section>
+        </aside>
+      </div>
+    </div>
+  );
+}
+function CandidateATS() {
+  let criteria = [
+    ['Format', '92%', 'Excellent', 'green'],
+    ['Lisibilité', '78%', 'Bon', 'blue'],
+    ['Mots-clés', '76%', 'Bon', 'orange'],
+    ['Structure', '88%', 'Très bon', 'purple'],
+    ['Pertinence', '81%', 'Très bon', 'green'],
+  ];
+  let found = [
+    'SQL',
+    'Python',
+    'Tableau',
+    'Power BI',
+    'Excel',
+    'BigQuery',
+    'Google Analytics',
+    'ETL',
+    'Looker',
+    'Data Visualisation',
+    'A/B Testing',
+    'KPI',
+    'Dashboards',
+    'Reporting',
+    '+14',
+  ];
+  let missing = [
+    'Snowflake',
+    'dbt',
+    'Airflow',
+    'Azure Synapse',
+    'Machine Learning',
+    'Data Governance',
+    'Storytelling',
+    'Agile',
+  ];
+  return (
+    <div className="ats-page">
+      <div className="cv-head ats-head">
+        <div>
+          <h1>Analyse ATS de mon CV</h1>
+          <p>
+            Voici l’analyse de votre CV{' '}
+            <b>“Sophie Martin - Data Analyst.pdf”</b>
+          </p>
+        </div>
+        <div>
+          <button>
+            <I.Download />
+            Télécharger le rapport
+          </button>
+          <button className="primary">
+            <I.Sparkles />
+            Optimiser mon CV
+          </button>
+        </div>
+      </div>
+      <div className="ats-layout">
+        <div className="ats-main">
+          <section className="panel ats-overview">
+            <Title t="Score ATS global" />
+            <div className="ats-overview-body">
+              <div className="ats-gauge">
+                <strong>82%</strong>
+                <b>Très bon</b>
+                <small>⌃ +12%　vs analyse précédente</small>
+                <p>
+                  ⓘ Votre CV a de fortes chances de passer les filtres ATS et
+                  d’attirer l’attention des recruteurs.
+                </p>
+              </div>
+              <div className="criteria">
+                {criteria.map((c, n) => (
+                  <div className="criterion" key={c[0]}>
+                    <i className={c[3]}>
+                      {
+                        [
+                          <I.ClipboardCheck key="a" />,
+                          <I.ListChecks key="b" />,
+                          <I.KeyRound key="c" />,
+                          <I.LayoutGrid key="d" />,
+                          <I.Target key="e" />,
+                        ][n]
+                      }
+                    </i>
+                    <b>{c[0]}</b>
+                    <span>
+                      <em className={c[3]} style={{ width: c[1] }} />
+                    </span>
+                    <strong>{c[1]}</strong>
+                    <small>{c[2]}</small>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+          <div className="ats-pairs">
+            <section className="panel ats-keywords good-box">
+              <Title t="✓ Mots-clés détectés" link="28" />
+              <div>
+                {found.map((x) => (
+                  <span key={x}>{x}</span>
+                ))}
+              </div>
+            </section>
+            <section className="panel ats-keywords missing-box">
+              <Title t="⚠ Mots-clés manquants" link="8" />
+              <div>
+                {missing.map((x) => (
+                  <span key={x}>{x}</span>
+                ))}
+              </div>
+            </section>
+            <section className="panel ats-list">
+              <Title t="✓ Points forts" />
+              <ul>
+                {[
+                  'Format de CV moderne et bien structuré',
+                  'Excellente utilisation des mots-clés techniques',
+                  'Expérience quantifiée avec des résultats concrets',
+                  'Parcours cohérent et lisible',
+                  'Bon équilibre entre hard skills et soft skills',
+                ].map((x) => (
+                  <li key={x}>✓　{x}</li>
+                ))}
+              </ul>
+              <I.ThumbsUp />
+            </section>
+            <section className="panel ats-list recommendations">
+              <Title t="⚠ Recommandations prioritaires" />
+              <ol>
+                <li>
+                  Ajouter des compétences manquantes importantes (Snowflake,
+                  dbt)
+                </li>
+                <li>Renforcer la section outils & technologies</li>
+                <li>Inclure plus de résultats chiffrés et d’impact business</li>
+              </ol>
+              <a>Voir toutes les recommandations　→</a>
+            </section>
+          </div>
+          <footer className="ats-foot">
+            ♢　Analyse basée sur les meilleures pratiques ATS et les données du
+            marché.<span>Dernière analyse : 18 mai 2025 à 10:24</span>
+          </footer>
+        </div>
+        <aside className="panel ats-compare">
+          <Title t="Comparer à une offre" />
+          <div className="offer-head">
+            <i>
+              <I.BriefcaseBusiness />
+            </i>
+            <span>
+              <b>Data Analyst Sénior</b>
+              <small>ACME Corp　•　Paris, France</small>
+            </span>
+            <button>Changer d’offre</button>
+          </div>
+          <h5>Correspondance globale</h5>
+          <div className="match-summary">
+            <strong>78%</strong>
+            <span>
+              <b>Bonne correspondance</b>
+              <small>+9%　vs analyse précédente</small>
+            </span>
+          </div>
+          <h5>Compétences requises</h5>
+          <div className="required">
+            {[
+              'SQL',
+              'Python',
+              'Tableau',
+              'Power BI',
+              'BigQuery',
+              'Git',
+              'Excel avancé',
+              'Statistiques',
+              'Data Visualisation',
+            ].map((x) => (
+              <span key={x}>• {x}</span>
+            ))}
+          </div>
+          <h5>Détail de la correspondance</h5>
+          <div className="match-details">
+            {[
+              ['Compétences techniques', '82%'],
+              ['Outils & logiciels', '75%'],
+              ['Expérience', '70%'],
+              ['Formation', '90%'],
+              ['Secteur', '65%'],
+            ].map((x, n) => (
+              <p key={x[0]}>
+                <i>{n + 1}</i>
+                <b>{x[0]}</b>
+                <span>
+                  <em style={{ width: x[1] }} />
+                </span>
+                <strong>{x[1]}</strong>
+              </p>
+            ))}
+          </div>
+          <button className="primary full">
+            <I.Sparkles />
+            Générer une version adaptée
+          </button>
+          <a>Voir le détail complet　→</a>
+        </aside>
+      </div>
+    </div>
+  );
+}
+function CVSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="cv-section">
+      <h4>{title}</h4>
+      {children}
+    </section>
+  );
+}
+function Experience({
+  role,
+  company,
+  date,
+}: {
+  role: string;
+  company: string;
+  date: string;
+}) {
+  return (
+    <div className="experience">
+      <b>{role}</b>
+      <span>{date}</span>
+      <strong>{company}</strong>
+      <ul>
+        <li>
+          Pilotage de la roadmap produit et coordination d’une équipe
+          pluridisciplinaire.
+        </li>
+        <li>
+          Amélioration de l’engagement produit grâce à l’analyse des données.
+        </li>
+      </ul>
+    </div>
+  );
+}
+const cols = [
+  ['Nouveaux', '142', 'blue'],
+  ['Préqualification', '68', 'blue'],
+  ['Entretien', '36', 'orange'],
+  ['Shortlist', '18', 'violet'],
+  ['Offre', '7', 'green'],
+  ['Recruté', '9', 'green'],
+];
+function Admin() {
+  return (
+    <>
+      <Head admin />
+      <section className="stats">
+        <Stat
+          Icon={I.BriefcaseBusiness}
+          label="Offres actives"
+          value="24"
+          delta="+3"
+        />
+        <Stat
+          Icon={I.Users}
+          label="Candidats"
+          value="1 248"
+          delta="+128"
+          n={1}
+        />
+        <Stat
+          Icon={I.CalendarDays}
+          label="Entretiens planifiés"
+          value="36"
+          delta="+6"
+          n={2}
+        />
+        <Stat
+          Icon={I.ChartNoAxesCombined}
+          label="Taux de conversion"
+          value="18,7%"
+          delta="+2,3 pts"
+          n={3}
+        />
+        <Stat
+          Icon={I.Clock3}
+          label="Temps moyen de recrutement"
+          value="24 jours"
+          delta="−3 jours"
+          n={4}
+        />
+      </section>
+      <div className="panel pipeline">
+        <Title t="Pipeline de recrutement" link="Voir tout le pipeline →" />
+        <div className="pipecols">
+          {cols.map((c, n) => (
+            <div className={'pipe ' + c[2]} key={c[0]}>
+              <header>
+                <b>{c[0]}</b>
+                <strong>{c[1]}</strong>
+              </header>
+              {people.slice(n * 3, n * 3 + 3).map((p, k) => (
+                <p key={p}>
+                  <i>
+                    {p
+                      .split(' ')
+                      .map((x) => x[0])
+                      .join('')}
+                  </i>
+                  <span>
+                    <b>{p}</b>
+                    <small>
+                      {['Data Analyst', 'Data Engineer', 'Product Manager'][k]}
+                      <br />
+                      Score {72 + k * 6}%
+                    </small>
+                  </span>
+                </p>
+              ))}
+              <button>+ {Math.max(+c[1] - 3, 5)} autres</button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <section className="adminthree">
+        <div className="panel recent">
+          <Title t="Activité récente" link="Voir toute l’activité →" />
+          {[
+            'Nouvelle offre publiée',
+            'Entretien planifié',
+            'Email envoyé',
+            'Nouveau candidat ajouté',
+            'Candidat recruté',
+          ].map((x, n) => (
+            <p key={x}>
+              <i>▣</i>
+              <span>
+                <b>{x}</b>
+                <small>{people[n + 6]} – Data Engineer</small>
+              </span>
+              <small>Il y a {n + 1}h</small>
+            </p>
+          ))}
+        </div>
+        <div className="panel candidates">
+          <Title t="Top candidats" link="Voir tous les candidats →" />
+          {people.slice(9, 14).map((p, n) => (
+            <p key={p}>
+              <i>{n + 1}</i>
+              <b className="avatar">
+                {p
+                  .split(' ')
+                  .map((x) => x[0])
+                  .join('')}
+              </b>
+              <span>
+                <b>{p}</b>
+                <small>Data Scientist – ACME Corp</small>
+              </span>
+              <strong>{92 - n * 4}%</strong>
+            </p>
+          ))}
+        </div>
+        <div className="panel recruit">
+          <Title
+            t="Analyse des recrutements"
+            link="Voir le rapport complet →"
+          />
+          <div>
+            {[
+              ['Candidats entrants', '342'],
+              ['Entretiens réalisés', '78'],
+              ['Offres acceptées', '14'],
+              ['Recrutements', '9'],
+            ].map((x) => (
+              <span key={x[0]}>
+                {x[0]}
+                <b>
+                  {x[1]} <i>+18%</i>
+                </b>
+              </span>
+            ))}
+          </div>
+          <Chart />
+        </div>
+      </section>
+    </>
+  );
+}
+export default function Home() {
+  let [mode, setMode] = useState<Mode>('candidate');
+  let [tab, setTab] = useState<CandidateTab>('Tableau de bord');
+  let [notice, setNotice] = useState('');
+  let [external, setExternal] = useState<any[]>([]);
+  function toast(x: string) {
+    setNotice(x);
+    window.setTimeout(() => setNotice(''), 2600);
+  }
+  function applied(j: any) {
+    setExternal((v) => [
+      ...v,
+      {
+        id: 10000 + j.id,
+        company: j.company,
+        role: j.title,
+        stage: 'Envoyée',
+        score: j.match,
+      },
+    ]);
+  }
+  function legacyAction(e: React.MouseEvent) {
+    if (!['Tableau de bord', 'Mon CV', 'Analyse ATS'].includes(tab)) return;
+    let el = (e.target as HTMLElement).closest(
+      'button,a',
+    ) as HTMLElement | null;
+    if (!el || el.dataset.live === 'true') return;
+    let text = (el.textContent || '').trim();
+    if (el.tagName === 'A') {
+      if (text.includes('offres')) setTab("Offres d'emploi");
+      else if (text.toLowerCase().includes('kanban'))
+        setTab('Mes candidatures');
+      else if (text.toLowerCase().includes('analyse')) setTab('Analyse ATS');
+      else toast(`${text} ouvert`);
+      return;
+    }
+    if (text.includes('Télécharger')) {
+      let blob = new Blob(
+        [
+          `Rapport JobPilot\nUtilisateur : Sophie Martin\nÉcran : ${tab}\nGénéré le ${new Date().toLocaleDateString('fr-FR')}`,
+        ],
+        { type: 'text/plain' },
+      );
+      let a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `JobPilot-${tab.replaceAll(' ', '-')}.txt`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('Téléchargement lancé');
+    } else if (text.includes('Optimiser') || text.includes('Générer'))
+      toast('Version personnalisée générée avec les données du profil');
+    else if (text.includes('nouvelle version'))
+      toast('Nouvelle version du CV créée');
+    else if (text.includes('Nouvelle recherche')) setTab("Offres d'emploi");
+    else if (text.includes('Changer')) toast('Sélecteur d’offre ouvert');
+    else if (text.includes('Premium')) toast('Page des offres Premium ouverte');
+    else toast(`${text || 'Action'} activé`);
+  }
+  let candidatePage =
+    tab === 'Mon CV' ? (
+      <CandidateCV />
+    ) : tab === 'Analyse ATS' ? (
+      <CandidateATS />
+    ) : tab === "Offres d'emploi" ? (
+      <JobsPage toast={toast} onApplied={applied} />
+    ) : tab === 'Matching IA' ? (
+      <MatchingPage toast={toast} onApplied={applied} />
+    ) : tab === 'Mes candidatures' ? (
+      <ApplicationsPage toast={toast} external={external} />
+    ) : tab === 'Relances' ? (
+      <FollowupsPage toast={toast} />
+    ) : tab === 'Documents' ? (
+      <DocumentsPage toast={toast} />
+    ) : (
+      <Candidate />
+    );
+  return (
+    <div>
+      <Sidebar mode={mode} setMode={setMode} tab={tab} setTab={setTab} />
+      <Top mode={mode} setMode={setMode} />
+      <main onClickCapture={legacyAction}>
+        {mode === 'candidate' ? candidatePage : <Admin />}
+      </main>
+      <Toast message={notice} />
+      <button
+        className="float"
+        onClick={() => setMode(mode === 'candidate' ? 'admin' : 'candidate')}
+      >
+        {mode === 'candidate'
+          ? 'Voir dashboard Admin'
+          : 'Voir dashboard Candidat'}
+      </button>
+    </div>
+  );
+}
