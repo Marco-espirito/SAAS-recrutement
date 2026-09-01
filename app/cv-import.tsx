@@ -3,6 +3,23 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as I from 'lucide-react';
 GlobalWorkerOptions.workerSrc = pdfWorker;
+type Key =
+  | 'contact'
+  | 'profile'
+  | 'skills'
+  | 'experience'
+  | 'education'
+  | 'projects'
+  | 'languages'
+  | 'interests'
+  | 'certifications'
+  | 'other';
+export type CVSectionData = {
+  key: Key;
+  label: string;
+  items: string[];
+  column: 'left' | 'main';
+};
 export type ParsedCV = {
   name: string;
   title: string;
@@ -11,14 +28,59 @@ export type ParsedCV = {
   linkedin: string;
   age: string;
   skills: string[];
-  education: string[];
-  experience: string[];
-  projects: string[];
-  interests: string[];
+  sections: CVSectionData[];
 };
-const headings =
-  /^(formations?|exp[ée]riences? professionnelles?|comp[ée]tences?|contacts?|centres? d.?int[ée]r[êe]t|profil|projets?)$/i;
-const skillWords = [
+type Line = {
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  column: 'left' | 'main';
+};
+const aliases: Array<[Key, RegExp, string]> = [
+  [
+    'contact',
+    /^(contact|contacts|coordonn[ée]es|contact details|personal details|datos de contacto|kontaktdaten)$/i,
+    'Contact',
+  ],
+  [
+    'profile',
+    /^(profil|profile|summary|professional summary|about me|à propos|objective|career objective|resum[ée]|perfil|profilo|kurzprofil)$/i,
+    'Profil',
+  ],
+  [
+    'skills',
+    /^(comp[ée]tences|comp[ée]tences techniques|skills|technical skills|core skills|expertise|technologies|aptitudes|habilidades|kenntnisse)$/i,
+    'Compétences',
+  ],
+  [
+    'experience',
+    /^(exp[ée]riences?( professionnelles?)?|professional experience|work experience|employment history|career history|experiencia profesional|berufserfahrung)$/i,
+    'Expériences professionnelles',
+  ],
+  [
+    'education',
+    /^(formation|formations|education|academic background|studies|parcours acad[ée]mique|estudios|ausbildung)$/i,
+    'Formations',
+  ],
+  [
+    'projects',
+    /^(projets?( personnels?| professionnels?)?|projects?|personal projects?|r[ée]alisations|achievements|portfolio|proyectos)$/i,
+    'Projets personnels',
+  ],
+  ['languages', /^(langues|languages|idiomas|sprachen)$/i, 'Langues'],
+  [
+    'interests',
+    /^(centres? d.?int[ée]r[êe]t|int[ée]r[êe]ts|hobbies|interests|loisirs|activit[ée]s|intereses|hobbys)$/i,
+    'Centres d’intérêt',
+  ],
+  [
+    'certifications',
+    /^(certifications?|certificats?|licenses? & certifications?|awards?|distinctions?)$/i,
+    'Certifications',
+  ],
+];
+const skillsList = [
   'Python',
   'R',
   'Javascript',
@@ -46,69 +108,89 @@ const skillWords = [
   'Deep Learning',
   'DevOps',
 ];
+const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
+function asHeading(text: string, size: number, median: number) {
+  const n = clean(text).replace(/[:：]$/, '');
+  for (const [key, rx, label] of aliases) if (rx.test(n)) return { key, label };
+  const big = size >= median * 1.42 && n.length < 45 && !/[.@]/.test(n),
+    upper =
+      size >= median * 1.15 &&
+      n === n.toUpperCase() &&
+      /[A-ZÀ-Ý]/.test(n) &&
+      n.length > 3 &&
+      n.length < 38;
+  return big || upper
+    ? { key: 'other' as Key, label: n.replace(/\b\w/g, (c) => c.toUpperCase()) }
+    : null;
+}
 export async function parseCV(file: File): Promise<ParsedCV> {
   const pdf = await getDocument({
-    data: new Uint8Array(await file.arrayBuffer()),
-  }).promise;
-  const lines: string[] = [];
-  for (let n = 1; n <= pdf.numPages; n++) {
-    const page = await pdf.getPage(n);
-    const content = await page.getTextContent();
-    for (const item of content.items as any[]) {
-      const s = (item.str || '').replace(/\s+/g, ' ').trim();
-      if (s) lines.push(s);
+      data: new Uint8Array(await file.arrayBuffer()),
+    }).promise,
+    all: Line[] = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p),
+      width = page.getViewport({ scale: 1 }).width,
+      c = await page.getTextContent();
+    for (const i of c.items as any[]) {
+      const text = clean(i.str || '');
+      if (text)
+        all.push({
+          text,
+          x: i.transform[4],
+          y: i.transform[5] - (p - 1) * 2000,
+          size: i.height || Math.abs(i.transform[3]) || 8,
+          column: i.transform[4] < width * 0.31 ? 'left' : 'main',
+        });
     }
   }
-  const unique = lines.filter((x, i) => i === 0 || x !== lines[i - 1]);
-  const email = unique.find((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)) || '';
-  const phone =
-    unique.find((x) => /(?:\+33|0)[ .-]?[1-9](?:[ .-]?\d{2}){4}/.test(x)) || '';
-  const linkedin = unique.find((x) => /linkedin|in\//i.test(x)) || '';
-  const age = unique.find((x) => /^\d{2}\s*ans$/i.test(x)) || '';
-  const name =
-    unique.find(
-      (x) =>
-        /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÿ'-]+\s+[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÿ'-]+$/.test(x) &&
-        !headings.test(x),
-    ) || file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ');
-  const ni = unique.indexOf(name);
-  const title =
-    unique
-      .slice(Math.max(0, ni + 1), ni + 5)
-      .find((x) => !/[\d@]/.test(x) && !headings.test(x)) ||
-    'Profil professionnel';
-  const skills = skillWords.filter((s) =>
-    unique.some((x) => x.toLowerCase().includes(s.toLowerCase())),
-  );
-  const section = (start: RegExp, ends: RegExp[]) => {
-    const i = unique.findIndex((x) => start.test(x));
-    if (i < 0) return [];
-    let j = unique.findIndex((x, k) => k > i && ends.some((e) => e.test(x)));
-    if (j < 0) j = unique.length;
-    return unique
-      .slice(i + 1, j)
-      .filter((x) => x !== name && x !== email && x !== phone);
-  };
-  const education = section(/^formations?$/i, [
-    /^exp/i,
-    /^comp/i,
-    /^contacts?$/i,
-  ]).slice(0, 16);
-  const experience = section(/^exp[ée]riences?/i, [
-    /^centres?/i,
-    /^formations?$/i,
-  ])
-    .filter((x) => !skillWords.includes(x))
-    .slice(0, 30);
-  const interests = section(/^centres?/i, [/^rythme/i]).slice(0, 8);
-  const projects = unique
-    .filter(
-      (x) =>
-        /conception|d[ée]veloppement|dashboard|scraping|pipeline|application/i.test(
-          x,
-        ) && x.length > 28,
-    )
-    .slice(0, 10);
+  const sizes = all.map((x) => x.size).sort((a, b) => a - b),
+    median = sizes[Math.floor(sizes.length / 2)] || 9,
+    sections: CVSectionData[] = [];
+  for (const column of ['left', 'main'] as const) {
+    let current: CVSectionData | null = null;
+    for (const line of all
+      .filter((x) => x.column === column)
+      .sort((a, b) => b.y - a.y || a.x - b.x)) {
+      const h = asHeading(line.text, line.size, median);
+      if (h) {
+        current = { ...h, items: [], column };
+        sections.push(current);
+      } else if (current) current.items.push(line.text);
+    }
+  }
+  const text = all.map((x) => x.text),
+    email =
+      text
+        .find((x) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(x))
+        ?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || '',
+    phone =
+      text.find((x) => /(?:\+33|0)[ .-]?[1-9](?:[ .-]?\d{2}){4}/.test(x)) || '',
+    linkedin = text.find((x) => /linkedin|in\//i.test(x)) || '',
+    age = text.find((x) => /^\d{2}\s*ans$/i.test(x)) || '',
+    name =
+      all
+        .filter((x) => x.column === 'main' && x.size >= median * 2)
+        .sort((a, b) => b.y - a.y)[0]?.text ||
+      file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' '),
+    nameLine = all.find((x) => x.text === name),
+    title =
+      all
+        .filter(
+          (x) =>
+            x.column === 'main' &&
+            (!nameLine || x.y < nameLine.y) &&
+            x.size >= median * 1.35 &&
+            !asHeading(x.text, x.size, median),
+        )
+        .sort((a, b) => b.y - a.y)[0]?.text || 'Profil professionnel',
+    skills = skillsList.filter((s) =>
+      text.some((x) => x.toLowerCase().includes(s.toLowerCase())),
+    );
+  for (const s of sections)
+    s.items = s.items
+      .filter((x) => ![name, title, email, phone, linkedin, age].includes(x))
+      .filter((x, i, a) => x && a.indexOf(x) === i);
   return {
     name,
     title,
@@ -117,24 +199,9 @@ export async function parseCV(file: File): Promise<ParsedCV> {
     linkedin,
     age,
     skills,
-    education,
-    experience,
-    projects,
-    interests,
+    sections: sections.filter((s) => s.items.length),
   };
 }
-const Block = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
-  <section className="import-block">
-    <h3>{title}</h3>
-    {children}
-  </section>
-);
 const Items = ({ items }: { items: string[] }) => (
   <ul>
     {items.map((x, i) => (
@@ -142,13 +209,40 @@ const Items = ({ items }: { items: string[] }) => (
     ))}
   </ul>
 );
+const Section = ({ s, skills }: { s: CVSectionData; skills: string[] }) => (
+  <section className={`import-block section-${s.key}`}>
+    <h3>{s.label}</h3>
+    {s.key === 'skills' ? (
+      <>
+        <div className="import-skills">
+          {skills.map((x) => (
+            <span key={x}>{x}</span>
+          ))}
+        </div>
+        <Items
+          items={s.items.filter(
+            (x) => !skills.some((k) => x.toLowerCase() === k.toLowerCase()),
+          )}
+        />
+      </>
+    ) : (
+      <Items items={s.items} />
+    )}
+  </section>
+);
 export function ImportedCVSummary({ cv, file }: { cv: ParsedCV; file: File }) {
   const initials = cv.name
-    .split(/\s+/)
-    .map((x) => x[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+      .split(/\s+/)
+      .map((x) => x[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase(),
+    left = cv.sections.filter(
+      (s) => s.column === 'left' && s.key !== 'contact',
+    ),
+    main = cv.sections.filter(
+      (s) => s.column === 'main' && s.key !== 'contact',
+    );
   return (
     <div className="imported-cv-layout">
       <aside className="imported-identity panel">
@@ -176,11 +270,11 @@ export function ImportedCVSummary({ cv, file }: { cv: ParsedCV; file: File }) {
           </p>
         )}
         <hr />
-        <small>Informations extraites automatiquement du PDF.</small>
+        <small>Colonnes et rubriques détectées automatiquement.</small>
       </aside>
       <article className="imported-paper panel">
         <header>
-          <span>CV importé</span>
+          <span>CV structuré</span>
           <h1>{cv.name}</h1>
           <h2>{cv.title}</h2>
           <p>
@@ -189,56 +283,26 @@ export function ImportedCVSummary({ cv, file }: { cv: ParsedCV; file: File }) {
         </header>
         <div className="imported-columns">
           <main>
-            {cv.experience.length > 0 && (
-              <Block title="Expériences professionnelles">
-                <Items items={cv.experience} />
-              </Block>
-            )}
-            {cv.projects.length > 0 && (
-              <Block title="Projets et réalisations">
-                <Items items={cv.projects} />
-              </Block>
-            )}
+            {main.map((s, i) => (
+              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
+            ))}
           </main>
           <aside>
-            {cv.skills.length > 0 && (
-              <Block title="Compétences">
-                <div className="import-skills">
-                  {cv.skills.map((x) => (
-                    <span key={x}>{x}</span>
-                  ))}
-                </div>
-              </Block>
-            )}
-            {cv.education.length > 0 && (
-              <Block title="Formations">
-                <Items items={cv.education} />
-              </Block>
-            )}
-            {cv.interests.length > 0 && (
-              <Block title="Centres d’intérêt">
-                <Items items={cv.interests} />
-              </Block>
-            )}
+            {left.map((s, i) => (
+              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
+            ))}
           </aside>
         </div>
       </article>
       <aside className="import-insights">
         <section className="panel">
-          <h3>Extraction terminée</h3>
-          <strong>
-            {Math.min(
-              98,
-              65 + cv.skills.length + Math.min(cv.experience.length, 12),
-            )}
-            %
-          </strong>
+          <h3>Structure reconnue</h3>
+          <strong>{cv.sections.length}</strong>
           <p>
-            {cv.skills.length} compétences détectées
+            rubriques détectées
             <br />
-            {cv.experience.length} éléments d’expérience
-            <br />
-            {cv.education.length} éléments de formation
+            {cv.skills.length} compétences techniques
+            <br />2 colonnes analysées séparément
           </p>
         </section>
         <section className="panel">
