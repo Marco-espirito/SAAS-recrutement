@@ -504,9 +504,7 @@ function CandidateCV() {
         </div>
       )}
       {error && <div className="cv-import-status error">{error}</div>}
-      {parsed && file && (
-        <ImportedCVSummary cv={parsed} file={file} sourceUrl={url} />
-      )}
+      {parsed && file && <ImportedCVSummary cv={parsed} file={file} />}
       <div className={`cv-layout ${parsed ? 'demo-hidden' : ''}`}>
         <aside className="cv-left">
           <section className="panel profile-card">

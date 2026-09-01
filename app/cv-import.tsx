@@ -158,7 +158,13 @@ export async function parseCV(file: File): Promise<ParsedCV> {
     median = sizes[Math.floor(sizes.length / 2)] || 9,
     sections: CVSectionData[] = [],
     headingFonts = new Set(
-      all.filter((x) => asHeading(x.text, x.size, median)).map((x) => x.font),
+      all
+        .filter((x) =>
+          aliases.some(([, rx]) =>
+            rx.test(clean(x.text).replace(/[:：]$/, '')),
+          ),
+        )
+        .map((x) => x.font),
     );
   for (const column of ['left', 'main'] as const) {
     let current: CVSectionData | null = null;
@@ -274,22 +280,19 @@ const Section = ({ s, skills }: { s: CVSectionData; skills: string[] }) => (
     )}
   </section>
 );
-export function ImportedCVSummary({
-  cv,
-  file,
-  sourceUrl,
-}: {
-  cv: ParsedCV;
-  file: File;
-  sourceUrl: string;
-}) {
+export function ImportedCVSummary({ cv, file }: { cv: ParsedCV; file: File }) {
   const initials = cv.name
       .split(/\s+/)
       .map((x) => x[0])
       .slice(0, 2)
       .join('')
       .toUpperCase(),
-    sectionCount = cv.sections.length;
+    left = cv.sections.filter(
+      (s) => s.column === 'left' && s.key !== 'contact',
+    ),
+    main = cv.sections.filter(
+      (s) => s.column === 'main' && s.key !== 'contact',
+    );
   return (
     <div className="imported-cv-layout">
       <aside className="imported-identity panel">
@@ -319,24 +322,32 @@ export function ImportedCVSummary({
         <hr />
         <small>Colonnes et rubriques détectées automatiquement.</small>
       </aside>
-      <article className="imported-paper faithful-pdf panel">
-        <div className="faithful-pdf-head">
-          <span>
-            <I.FileCheck2 /> Aperçu original fidèle
-          </span>
-          <button onClick={() => window.open(sourceUrl, '_blank')}>
-            <I.ExternalLink /> Ouvrir en grand
-          </button>
+      <article className="imported-paper panel">
+        <header>
+          <span>CV structuré</span>
+          <h1>{cv.name}</h1>
+          <h2>{cv.title}</h2>
+          <p>
+            {[cv.email, cv.phone, cv.linkedin].filter(Boolean).join('  ·  ')}
+          </p>
+        </header>
+        <div className="imported-columns">
+          <main>
+            {main.map((s, i) => (
+              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
+            ))}
+          </main>
+          <aside>
+            {left.map((s, i) => (
+              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
+            ))}
+          </aside>
         </div>
-        <iframe
-          title={`CV original de ${cv.name}`}
-          src={`${sourceUrl}#toolbar=0&navpanes=0&view=FitH`}
-        />
       </article>
       <aside className="import-insights">
         <section className="panel">
           <h3>Structure reconnue</h3>
-          <strong>{sectionCount}</strong>
+          <strong>{cv.sections.length}</strong>
           <p>
             rubriques détectées
             <br />
