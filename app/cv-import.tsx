@@ -17,8 +17,16 @@ type Key =
 export type CVSectionData = {
   key: Key;
   label: string;
-  items: string[];
+  items: CVItem[];
   column: 'left' | 'main';
+  x: number;
+};
+export type CVItem = {
+  text: string;
+  size: number;
+  bold: boolean;
+  indent: number;
+  bullet: boolean;
 };
 export type ParsedCV = {
   name: string;
@@ -35,6 +43,7 @@ type Line = {
   x: number;
   y: number;
   size: number;
+  font: string;
   column: 'left' | 'main';
 };
 const aliases: Array<[Key, RegExp, string]> = [
@@ -140,13 +149,17 @@ export async function parseCV(file: File): Promise<ParsedCV> {
           x: i.transform[4],
           y: i.transform[5] - (p - 1) * 2000,
           size: i.height || Math.abs(i.transform[3]) || 8,
+          font: i.fontName || '',
           column: i.transform[4] < width * 0.31 ? 'left' : 'main',
         });
     }
   }
   const sizes = all.map((x) => x.size).sort((a, b) => a - b),
     median = sizes[Math.floor(sizes.length / 2)] || 9,
-    sections: CVSectionData[] = [];
+    sections: CVSectionData[] = [],
+    headingFonts = new Set(
+      all.filter((x) => asHeading(x.text, x.size, median)).map((x) => x.font),
+    );
   for (const column of ['left', 'main'] as const) {
     let current: CVSectionData | null = null;
     for (const line of all
@@ -154,9 +167,16 @@ export async function parseCV(file: File): Promise<ParsedCV> {
       .sort((a, b) => b.y - a.y || a.x - b.x)) {
       const h = asHeading(line.text, line.size, median);
       if (h) {
-        current = { ...h, items: [], column };
+        current = { ...h, items: [], column, x: line.x };
         sections.push(current);
-      } else if (current) current.items.push(line.text);
+      } else if (current)
+        current.items.push({
+          text: line.text,
+          size: line.size,
+          bold: headingFonts.has(line.font) || line.size >= median * 1.22,
+          indent: Math.max(0, Math.min(42, line.x - current.x)),
+          bullet: /^[•●▪◦‣✓✔]|^[-–—]\s/.test(line.text),
+        });
     }
   }
   const text = all.map((x) => x.text),
@@ -189,8 +209,12 @@ export async function parseCV(file: File): Promise<ParsedCV> {
     );
   for (const s of sections)
     s.items = s.items
-      .filter((x) => ![name, title, email, phone, linkedin, age].includes(x))
-      .filter((x, i, a) => x && a.indexOf(x) === i);
+      .filter(
+        (x) => ![name, title, email, phone, linkedin, age].includes(x.text),
+      )
+      .filter(
+        (x, i, a) => x.text && a.findIndex((y) => y.text === x.text) === i,
+      );
   return {
     name,
     title,
@@ -202,12 +226,31 @@ export async function parseCV(file: File): Promise<ParsedCV> {
     sections: sections.filter((s) => s.items.length),
   };
 }
-const Items = ({ items }: { items: string[] }) => (
-  <ul>
-    {items.map((x, i) => (
-      <li key={`${x}-${i}`}>{x}</li>
-    ))}
-  </ul>
+const Items = ({ items }: { items: CVItem[] }) => (
+  <div className="faithful-lines">
+    {items.map((x, i) =>
+      x.bullet ? (
+        <li
+          className={x.bold ? 'is-bold' : ''}
+          style={{ marginLeft: x.indent }}
+          key={`${x.text}-${i}`}
+        >
+          {x.text.replace(/^[•●▪◦‣✓✔-]\s*/, '')}
+        </li>
+      ) : (
+        <p
+          className={x.bold ? 'is-bold' : ''}
+          style={{
+            marginLeft: x.indent,
+            fontSize: `${Math.max(9, Math.min(13, x.size * 0.92))}px`,
+          }}
+          key={`${x.text}-${i}`}
+        >
+          {x.text}
+        </p>
+      ),
+    )}
+  </div>
 );
 const Section = ({ s, skills }: { s: CVSectionData; skills: string[] }) => (
   <section className={`import-block section-${s.key}`}>
@@ -221,7 +264,8 @@ const Section = ({ s, skills }: { s: CVSectionData; skills: string[] }) => (
         </div>
         <Items
           items={s.items.filter(
-            (x) => !skills.some((k) => x.toLowerCase() === k.toLowerCase()),
+            (x) =>
+              !skills.some((k) => x.text.toLowerCase() === k.toLowerCase()),
           )}
         />
       </>
