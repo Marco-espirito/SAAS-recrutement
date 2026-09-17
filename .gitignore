@@ -36,3 +36,9 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+/public/pdf.worker.min.mjs
+*.tsbuildinfo
+
+.vercel
+.env*

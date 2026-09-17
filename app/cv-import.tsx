@@ -1,8 +1,8 @@
 'use client';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+
 import * as I from 'lucide-react';
-GlobalWorkerOptions.workerSrc = pdfWorker;
+
 type Key =
   | 'contact'
   | 'profile'
@@ -133,6 +133,8 @@ function asHeading(text: string, size: number, median: number) {
     : null;
 }
 export async function parseCV(file: File): Promise<ParsedCV> {
+  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+  GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   const pdf = await getDocument({
       data: new Uint8Array(await file.arrayBuffer()),
     }).promise,
