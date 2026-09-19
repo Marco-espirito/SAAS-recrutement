@@ -1,6 +1,5 @@
 'use client';
 
-
 import * as I from 'lucide-react';
 
 type Key =
@@ -12,28 +11,27 @@ type Key =
   | 'projects'
   | 'languages'
   | 'interests'
-  | 'certifications'
-  | 'other';
-export type CVSectionData = {
-  key: Key;
-  label: string;
-  items: CVItem[];
-  column: 'left' | 'main';
-  x: number;
-};
+  | 'certifications';
 export type CVItem = {
   text: string;
   size: number;
   bold: boolean;
-  indent: number;
   bullet: boolean;
+};
+export type CVSectionData = {
+  key: Key;
+  label: string;
+  items: CVItem[];
 };
 export type ParsedCV = {
   name: string;
   title: string;
   email: string;
   phone: string;
+  location: string;
   linkedin: string;
+  github: string;
+  website: string;
   age: string;
   skills: string[];
   sections: CVSectionData[];
@@ -46,59 +44,76 @@ type Line = {
   font: string;
   column: 'left' | 'main';
 };
-const aliases: Array<[Key, RegExp, string]> = [
-  [
-    'contact',
-    /^(contact|contacts|coordonn[ée]es|contact details|personal details|datos de contacto|kontaktdaten)$/i,
-    'Contact',
-  ],
+
+// Libellés canoniques : structure fixe, identique quel que soit le CV importé.
+const LABELS: Record<Key, string> = {
+  contact: 'Contact',
+  profile: 'Profil',
+  experience: 'Expériences professionnelles',
+  education: 'Formations',
+  skills: 'Compétences',
+  projects: 'Projets',
+  languages: 'Langues',
+  interests: 'Centres d’intérêt',
+  certifications: 'Certifications',
+};
+// Ordre d'affichage fixe dans chaque colonne du modèle.
+const MAIN_ORDER: Key[] = ['profile', 'experience', 'education'];
+const SIDE_ORDER: Key[] = [
+  'skills',
+  'projects',
+  'certifications',
+  'languages',
+  'interests',
+];
+// Détection des titres : insensible aux accents, à la casse et aux variantes.
+const CANON: Array<[Key, RegExp]> = [
+  ['contact', /^(contact|contacts|coordonnees|informations?( personnelles?)?)$/],
   [
     'profile',
-    /^(profil|profile|summary|professional summary|about me|à propos|objective|career objective|resum[ée]|perfil|profilo|kurzprofil)$/i,
-    'Profil',
-  ],
-  [
-    'skills',
-    /^(comp[ée]tences|comp[ée]tences techniques|skills|technical skills|core skills|expertise|technologies|aptitudes|habilidades|kenntnisse)$/i,
-    'Compétences',
+    /^(profil|profile|a ?propos|about( me)?|resume|summary|professional summary|objectif( professionnel)?|accroche|presentation|perfil)$/,
   ],
   [
     'experience',
-    /^(exp[ée]riences?( professionnelles?)?|professional experience|work experience|employment history|career history|experiencia profesional|berufserfahrung)$/i,
-    'Expériences professionnelles',
+    /(experiences?( professionnelles?| pro)?|work experience|employment( history)?|parcours professionnel|emplois?|experiencia)/,
   ],
   [
     'education',
-    /^(formation|formations|education|academic background|studies|parcours acad[ée]mique|estudios|ausbildung)$/i,
-    'Formations',
+    /(formations?|education|diplomes?|etudes|scolarite|parcours (scolaire|academique)|academic|ausbildung|estudios)/,
   ],
   [
-    'projects',
-    /^(projets?( personnels?| professionnels?)?|projects?|personal projects?|r[ée]alisations|achievements|portfolio|proyectos)$/i,
-    'Projets personnels',
+    'skills',
+    /(competences?|skills?|expertise|technolog|savoir-faire|aptitudes|langages? de programmation|outils|stack|kenntnisse|habilidades)/,
   ],
-  ['languages', /^(langues|languages|idiomas|sprachen)$/i, 'Langues'],
+  ['projects', /(projets?|projects?|realisations?|portfolio|achievements?|proyectos)/],
+  ['languages', /^(langues?|languages?|idiomas?|sprachen)$/],
   [
     'interests',
-    /^(centres? d.?int[ée]r[êe]t|int[ée]r[êe]ts|hobbies|interests|loisirs|activit[ée]s|intereses|hobbys)$/i,
-    'Centres d’intérêt',
+    /(centres? d'? ?interets?|interets?|loisirs?|hobb|interests?|activites)/,
   ],
   [
     'certifications',
-    /^(certifications?|certificats?|licenses? & certifications?|awards?|distinctions?)$/i,
-    'Certifications',
+    /(certifications?|certificats?|licences?|licenses?|awards?|distinctions?)/,
   ],
 ];
 const skillsList = [
   'Python',
   'R',
+  'Scala',
   'Javascript',
+  'Typescript',
   'Java',
   'PHP',
+  'C++',
   'SQL',
   'NoSQL',
+  'MySQL',
+  'PostgreSQL',
+  'MongoDB',
   'Tensorflow',
+  'Keras',
   'Pytorch',
+  'Scikit-learn',
   'Pandas',
   'Numpy',
   'BeautifulSoup',
@@ -107,263 +122,487 @@ const skillsList = [
   'Power BI',
   'Tableau',
   'Plotly',
+  'Looker',
+  'Excel',
   'ETL',
   'Talend',
+  'dbt',
+  'KNIME',
+  'Snowflake',
+  'BigQuery',
+  'Databricks',
+  'Spark',
+  'Airflow',
   'Git',
+  'Docker',
+  'Kubernetes',
   'Jenkins',
+  'AWS',
+  'Azure',
+  'GCP',
   'Selenium',
+  'Flask',
   'React JS',
+  'Next JS',
+  'Node JS',
   'Machine Learning',
   'Deep Learning',
+  'NLP',
   'DevOps',
 ];
+
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
-function asHeading(text: string, size: number, median: number) {
-  const n = clean(text).replace(/[:：]$/, '');
-  for (const [key, rx, label] of aliases) if (rx.test(n)) return { key, label };
-  const big = size >= median * 1.42 && n.length < 45 && !/[.@]/.test(n),
-    upper =
-      size >= median * 1.15 &&
-      n === n.toUpperCase() &&
-      /[A-ZÀ-Ý]/.test(n) &&
-      n.length > 3 &&
-      n.length < 38;
-  return big || upper
-    ? { key: 'other' as Key, label: n.replace(/\b\w/g, (c) => c.toUpperCase()) }
-    : null;
-}
-export async function parseCV(file: File): Promise<ParsedCV> {
-  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
-  GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-  const pdf = await getDocument({
-      data: new Uint8Array(await file.arrayBuffer()),
-    }).promise,
-    all: Line[] = [];
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p),
-      width = page.getViewport({ scale: 1 }).width,
-      c = await page.getTextContent();
-    for (const i of c.items as any[]) {
-      const text = clean(i.str || '');
-      if (text)
-        all.push({
-          text,
-          x: i.transform[4],
-          y: i.transform[5] - (p - 1) * 2000,
-          size: i.height || Math.abs(i.transform[3]) || 8,
-          font: i.fontName || '',
-          column: i.transform[4] < width * 0.31 ? 'left' : 'main',
-        });
-    }
+const norm = (s: string) =>
+  clean(s)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[’`´]/g, "'")
+    .toLowerCase();
+const isUpperish = (s: string) => {
+  const letters = s.replace(/[^a-zà-ÿ]/gi, '');
+  return letters.length > 2 && letters === letters.toUpperCase();
+};
+
+// Transforme les lignes+positions extraites du PDF en structure canonique fixe.
+export function structure(all: Line[], fallbackName: string): ParsedCV {
+  const sizes = all.map((l) => l.size).sort((a, b) => a - b);
+  const median = sizes[Math.floor(sizes.length / 2)] || 9;
+  // Taille du texte courant (paragraphe) = taille la plus fréquente : sert à
+  // distinguer les titres/intitulés (plus grands) des descriptions (puces).
+  const freq = new Map<number, number>();
+  for (const s of sizes) {
+    const k = Math.round(s * 2) / 2;
+    freq.set(k, (freq.get(k) || 0) + 1);
   }
-  const sizes = all.map((x) => x.size).sort((a, b) => a - b),
-    median = sizes[Math.floor(sizes.length / 2)] || 9,
-    sections: CVSectionData[] = [],
-    headingFonts = new Set(
-      all
-        .filter((x) =>
-          aliases.some(([, rx]) =>
-            rx.test(clean(x.text).replace(/[:：]$/, '')),
-          ),
-        )
-        .map((x) => x.font),
-    );
+  let bodySize = median;
+  let best = 0;
+  for (const [k, c] of freq)
+    if (c > best || (c === best && k < bodySize)) {
+      best = c;
+      bodySize = k;
+    }
+
+  function headingKey(text: string, size: number): Key | null {
+    const prominent =
+      size >= median * 1.28 ||
+      (isUpperish(text) && size >= median * 1.08 && text.length <= 42);
+    if (!prominent) return null;
+    const n = norm(text).replace(/\s*[:：].*$/, '').trim();
+    for (const [key, rx] of CANON) if (rx.test(n)) return key;
+    return null;
+  }
+
+  // ---- Champs de contact (indépendants de la mise en page) ----
+  const texts = all.map((l) => l.text);
+  const joined = texts.join('  ');
+  const email = (joined.match(/[\w.+-]+@[\w-]+\.[\w.-]+/) || [])[0] || '';
+  const phone =
+    (joined.match(
+      /(?:\+\d{1,3}[\s.-]?)?(?:0|\(0\))?\s?[1-9](?:[\s.-]?\d{2}){4}|\b0\d{9}\b/,
+    ) || [])[0] || '';
+  const linkedin =
+    texts.find((t) => /linkedin\.com|(^|\s|\/)in\/[\w.-]/i.test(t)) || '';
+  const github =
+    (joined.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[\w.\-/]+/i) ||
+      [])[0] || '';
+  const website =
+    texts.find(
+      (t) =>
+        /(https?:\/\/|www\.)[^\s]+/i.test(t) && !/linkedin|github/i.test(t),
+    ) || '';
+  const age = (joined.match(/\b\d{2}\s*ans\b/i) || [])[0] || '';
+  const location =
+    texts.find((t) =>
+      /^[A-ZÀ-Ý][\wà-ÿ' -]+,\s*(France|Belgique|Suisse|Canada|Luxembourg|Maroc)\b/i.test(
+        clean(t),
+      ),
+    ) ||
+    texts.find((t) => /\b\d{5}\s+[A-ZÀ-Ý][\wà-ÿ' -]+$/.test(clean(t))) ||
+    '';
+  const contactValues = new Set(
+    [email, phone, linkedin, github, website, age, location].filter(Boolean),
+  );
+
+  // ---- Nom & titre ----
+  const notHeading = all.filter((l) => !headingKey(l.text, l.size));
+  const nameLine = [...notHeading]
+    .filter((l) => l.text.length <= 40 && !contactValues.has(l.text))
+    .sort((a, b) => b.size - a.size || b.y - a.y)[0];
+  const name = nameLine?.text || fallbackName;
+  const title =
+    notHeading
+      .filter(
+        (l) =>
+          nameLine &&
+          l !== nameLine &&
+          l.y < nameLine.y &&
+          nameLine.y - l.y < 60 &&
+          l.size >= median * 1.15 &&
+          l.size < nameLine.size &&
+          !contactValues.has(l.text),
+      )
+      .sort((a, b) => b.y - a.y)[0]?.text || '';
+
+  // ---- Sections : lecture par colonne, fusion par clé canonique ----
+  const map = new Map<Key, CVItem[]>();
+  const skip = new Set([name, title, ...contactValues]);
   for (const column of ['left', 'main'] as const) {
-    let current: CVSectionData | null = null;
-    for (const line of all
+    let current: Key | null = null;
+    for (const l of all
       .filter((x) => x.column === column)
       .sort((a, b) => b.y - a.y || a.x - b.x)) {
-      const h = asHeading(line.text, line.size, median);
-      if (h) {
-        current = { ...h, items: [], column, x: line.x };
-        sections.push(current);
-      } else if (current)
-        current.items.push({
-          text: line.text,
-          size: line.size,
-          bold: headingFonts.has(line.font) || line.size >= median * 1.22,
-          indent: Math.max(0, Math.min(42, line.x - current.x)),
-          bullet: /^[•●▪◦‣✓✔]|^[-–—]\s/.test(line.text),
-        });
+      const hk = headingKey(l.text, l.size);
+      if (hk) {
+        current = hk;
+        if (!map.has(hk)) map.set(hk, []);
+        continue;
+      }
+      if (!current || current === 'contact') continue;
+      if (skip.has(l.text) || !clean(l.text)) continue;
+      const hasYear = /\b(19|20)\d{2}\b/.test(l.text);
+      const marked = /^[•●▪◦‣·*✓✔]|^[-–—]\s/.test(l.text);
+      // Titre = nettement plus grand que le corps, ou ligne courte datée.
+      const bold =
+        l.size >= bodySize * 1.18 ||
+        (hasYear && clean(l.text).length <= 60);
+      map.get(current)!.push({
+        text: clean(l.text),
+        size: l.size,
+        bold: bold && !marked,
+        // Les descriptions (taille courante, non-titres) deviennent des puces.
+        bullet: marked || !bold,
+      });
     }
   }
-  const text = all.map((x) => x.text),
-    email =
-      text
-        .find((x) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(x))
-        ?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || '',
-    phone =
-      text.find((x) => /(?:\+33|0)[ .-]?[1-9](?:[ .-]?\d{2}){4}/.test(x)) || '',
-    linkedin = text.find((x) => /linkedin|in\//i.test(x)) || '',
-    age = text.find((x) => /^\d{2}\s*ans$/i.test(x)) || '',
-    name =
-      all
-        .filter((x) => x.column === 'main' && x.size >= median * 2)
-        .sort((a, b) => b.y - a.y)[0]?.text ||
-      file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' '),
-    nameLine = all.find((x) => x.text === name),
-    title =
-      all
-        .filter(
-          (x) =>
-            x.column === 'main' &&
-            (!nameLine || x.y < nameLine.y) &&
-            x.size >= median * 1.35 &&
-            !asHeading(x.text, x.size, median),
-        )
-        .sort((a, b) => b.y - a.y)[0]?.text || 'Profil professionnel',
-    skills = skillsList.filter((s) =>
-      text.some((x) => x.toLowerCase().includes(s.toLowerCase())),
+  // Déduplication par section.
+  for (const [k, items] of map) {
+    const seen = new Set<string>();
+    map.set(
+      k,
+      items.filter((it) => {
+        if (seen.has(it.text)) return false;
+        seen.add(it.text);
+        return true;
+      }),
     );
-  for (const s of sections)
-    s.items = s.items
-      .filter(
-        (x) => ![name, title, email, phone, linkedin, age].includes(x.text),
-      )
-      .filter(
-        (x, i, a) => x.text && a.findIndex((y) => y.text === x.text) === i,
-      );
+  }
+
+  const skills = skillsList.filter((s) =>
+    texts.some((t) => norm(t).includes(norm(s))),
+  );
+  const order: Key[] = [...MAIN_ORDER, ...SIDE_ORDER];
+  const sections = order
+    .filter((k) => map.get(k)?.length)
+    .map((k) => ({ key: k, label: LABELS[k], items: map.get(k)! }));
+
   return {
     name,
     title,
     email,
     phone,
+    location,
     linkedin,
+    github,
+    website,
     age,
     skills,
-    sections: sections.filter((s) => s.items.length),
+    sections,
   };
 }
-const Items = ({ items }: { items: CVItem[] }) => (
-  <div className="faithful-lines">
-    {items.map((x, i) =>
-      x.bullet ? (
-        <li
-          className={x.bold ? 'is-bold' : ''}
-          style={{ marginLeft: x.indent }}
-          key={`${x.text}-${i}`}
-        >
-          {x.text.replace(/^[•●▪◦‣✓✔-]\s*/, '')}
-        </li>
-      ) : (
-        <p
-          className={x.bold ? 'is-bold' : ''}
-          style={{
-            marginLeft: x.indent,
-            fontSize: `${Math.max(9, Math.min(13, x.size * 0.92))}px`,
-          }}
-          key={`${x.text}-${i}`}
-        >
-          {x.text}
-        </p>
-      ),
-    )}
-  </div>
-);
-const Section = ({ s, skills }: { s: CVSectionData; skills: string[] }) => (
-  <section className={`import-block section-${s.key}`}>
-    <h3>{s.label}</h3>
-    {s.key === 'skills' ? (
-      <>
+
+export async function parseCV(file: File): Promise<ParsedCV> {
+  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+  GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  const pdf = await getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
+    .promise;
+  type Frag = { x: number; str: string; w: number; size: number; font: string };
+  const all: Line[] = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const width = page.getViewport({ scale: 1 }).width;
+    const content = await page.getTextContent();
+    // Regroupe les fragments d'une même ligne (même y et même colonne).
+    const rows = new Map<
+      string,
+      { y: number; column: 'left' | 'main'; frags: Frag[] }
+    >();
+    for (const it of content.items as any[]) {
+      const str = it.str || '';
+      if (!str.trim()) continue;
+      const x = it.transform[4];
+      const y = it.transform[5] - (p - 1) * 2000;
+      const size = it.height || Math.abs(it.transform[3]) || 8;
+      const column: 'left' | 'main' = x < width * 0.31 ? 'left' : 'main';
+      const rowKey = `${Math.round(y / 3)}:${column}`;
+      const row = rows.get(rowKey) || { y, column, frags: [] };
+      row.frags.push({
+        x,
+        str,
+        w: it.width || str.length * size * 0.5,
+        size,
+        font: it.fontName || '',
+      });
+      rows.set(rowKey, row);
+    }
+    for (const row of rows.values()) {
+      row.frags.sort((a, b) => a.x - b.x);
+      // Reconstruit le texte : espace seulement si l'écart le justifie
+      // (évite les coupures parasites du type « Cal cul » → « Calcul »).
+      let text = '';
+      let prevEnd: number | null = null;
+      for (const f of row.frags) {
+        if (prevEnd !== null && f.x - prevEnd > f.size * 0.3) text += ' ';
+        text += f.str;
+        prevEnd = f.x + f.w;
+      }
+      text = clean(text);
+      if (!text) continue;
+      // Taille représentative = celle du fragment le plus long (évite qu'un
+      // petit fragment plus gros ne fasse passer toute la ligne pour un titre).
+      const lead = [...row.frags].sort((a, b) => b.str.length - a.str.length)[0];
+      all.push({
+        text,
+        x: row.frags[0].x,
+        y: row.y,
+        size: lead.size,
+        font: lead.font,
+        column: row.column,
+      });
+    }
+  }
+  return structure(
+    all,
+    file.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' '),
+  );
+}
+
+// ---------- Rendu : modèle fixe (identique au CV de référence) ----------
+function Entry({ items, skills }: { items: CVItem[]; skills: string[] }) {
+  return (
+    <div className="faithful-lines">
+      {items.map((x, i) =>
+        x.bullet ? (
+          <li key={`${x.text}-${i}`}>
+            {x.text.replace(/^[•●▪◦‣·*✓✔]\s*|^[-–—]\s*/, '')}
+          </li>
+        ) : x.bold ? (
+          <p className="is-bold" key={`${x.text}-${i}`}>
+            {x.text}
+          </p>
+        ) : (
+          <li key={`${x.text}-${i}`}>{x.text}</li>
+        ),
+      )}
+      {skills && skills.length > 0 && (
         <div className="import-skills">
-          {skills.map((x) => (
-            <span key={x}>{x}</span>
+          {skills.map((s) => (
+            <span key={s}>{s}</span>
           ))}
         </div>
-        <Items
-          items={s.items.filter(
-            (x) =>
-              !skills.some((k) => x.text.toLowerCase() === k.toLowerCase()),
+      )}
+    </div>
+  );
+}
+function Block({ s, skills }: { s: CVSectionData; skills: string[] }) {
+  return (
+    <section className="cv-section">
+      <h4>{s.label}</h4>
+      {s.key === 'skills' ? (
+        <>
+          {skills.length > 0 && (
+            <div className="import-skills">
+              {skills.map((x) => (
+                <span key={x}>{x}</span>
+              ))}
+            </div>
           )}
-        />
-      </>
-    ) : (
-      <Items items={s.items} />
-    )}
-  </section>
-);
+          <Entry items={s.items} skills={[]} />
+        </>
+      ) : (
+        <Entry items={s.items} skills={[]} />
+      )}
+    </section>
+  );
+}
+
 export function ImportedCVSummary({ cv, file }: { cv: ParsedCV; file: File }) {
   const initials = cv.name
-      .split(/\s+/)
-      .map((x) => x[0])
-      .slice(0, 2)
-      .join('')
-      .toUpperCase(),
-    left = cv.sections.filter(
-      (s) => s.column === 'left' && s.key !== 'contact',
-    ),
-    main = cv.sections.filter(
-      (s) => s.column === 'main' && s.key !== 'contact',
-    );
+    .split(/\s+/)
+    .map((x) => x[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  const main = MAIN_ORDER.map((k) =>
+    cv.sections.find((s) => s.key === k),
+  ).filter(Boolean) as CVSectionData[];
+  const side = SIDE_ORDER.map((k) =>
+    cv.sections.find((s) => s.key === k),
+  ).filter(Boolean) as CVSectionData[];
+  const contactLine = [cv.email, cv.phone, cv.location]
+    .filter(Boolean)
+    .join('　·　');
+  const linksLine = [cv.linkedin, cv.github, cv.website]
+    .filter(Boolean)
+    .join('　·　');
+
   return (
-    <div className="imported-cv-layout">
-      <aside className="imported-identity panel">
-        <div className="import-avatar">{initials}</div>
-        <h2>{cv.name}</h2>
-        <b>{cv.title}</b>
-        <p>
-          <I.Mail />
-          {cv.email || 'Email non détecté'}
-        </p>
-        <p>
-          <I.Phone />
-          {cv.phone || 'Téléphone non détecté'}
-        </p>
-        {cv.linkedin && (
-          <p>
-            <I.Link />
-            {cv.linkedin}
-          </p>
+    <div className="cv-layout imported-cv">
+      <aside className="cv-left">
+        <section className="panel profile-card">
+          <div className="portrait">{initials || 'CV'}</div>
+          <div>
+            <h3>{cv.name}</h3>
+            <b>{cv.title || 'Profil professionnel'}</b>
+            {cv.location && (
+              <small>
+                <I.MapPin /> {cv.location}
+              </small>
+            )}
+          </div>
+          <hr />
+          {cv.email && (
+            <p>
+              <I.Mail />
+              <span>
+                Email<b>{cv.email}</b>
+              </span>
+            </p>
+          )}
+          {cv.phone && (
+            <p>
+              <I.Phone />
+              <span>
+                Téléphone<b>{cv.phone}</b>
+              </span>
+            </p>
+          )}
+          {cv.age && (
+            <p>
+              <I.UserRound />
+              <span>
+                Âge<b>{cv.age}</b>
+              </span>
+            </p>
+          )}
+          {(cv.linkedin || cv.github || cv.website) && <hr />}
+          {cv.linkedin && (
+            <p>
+              <I.Link2 />
+              <span>
+                LinkedIn<b className="link">{cv.linkedin}</b>
+              </span>
+            </p>
+          )}
+          {cv.github && (
+            <p>
+              <I.GitBranch />
+              <span>
+                GitHub<b className="link">{cv.github}</b>
+              </span>
+            </p>
+          )}
+          {cv.website && (
+            <p>
+              <I.Globe />
+              <span>
+                Portfolio<b className="link">{cv.website}</b>
+              </span>
+            </p>
+          )}
+        </section>
+        {cv.skills.length > 0 && (
+          <section className="panel keyword-card">
+            <div className="title">
+              <b>Compétences clés détectées</b>
+            </div>
+            <div>
+              {cv.skills.map((x) => (
+                <span key={x}>{x}</span>
+              ))}
+            </div>
+          </section>
         )}
-        {cv.age && (
+        <section className="panel current-file">
+          <b>Fichier importé</b>
           <p>
-            <I.UserRound />
-            {cv.age}
+            <i>PDF</i>
+            <span>
+              <b>{file.name}</b>
+              <small>
+                {(file.size / 1024).toFixed(0)} Ko · importé maintenant
+              </small>
+            </span>
           </p>
-        )}
-        <hr />
-        <small>Colonnes et rubriques détectées automatiquement.</small>
+        </section>
       </aside>
-      <article className="imported-paper panel">
+
+      <article className="cv-paper">
         <header>
-          <span>CV structuré</span>
-          <h1>{cv.name}</h1>
-          <h2>{cv.title}</h2>
-          <p>
-            {[cv.email, cv.phone, cv.linkedin].filter(Boolean).join('  ·  ')}
-          </p>
+          <h2>{cv.name}</h2>
+          <h3>{cv.title || 'Profil professionnel'}</h3>
+          {contactLine && <p>{contactLine}</p>}
+          {linksLine && <p>{linksLine}</p>}
         </header>
-        <div className="imported-columns">
-          <main>
-            {main.map((s, i) => (
-              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
-            ))}
-          </main>
-          <aside>
-            {left.map((s, i) => (
-              <Section key={`${s.label}-${i}`} s={s} skills={cv.skills} />
+        <div className="cv-columns">
+          <div className="cv-main">
+            {main.length ? (
+              main.map((s) => <Block key={s.key} s={s} skills={[]} />)
+            ) : (
+              <section className="cv-section">
+                <p>
+                  Aucune expérience ou formation détectée automatiquement dans ce
+                  PDF.
+                </p>
+              </section>
+            )}
+          </div>
+          <aside className="cv-side">
+            {side.map((s) => (
+              <Block
+                key={s.key}
+                s={s}
+                skills={s.key === 'skills' ? cv.skills : []}
+              />
             ))}
           </aside>
         </div>
       </article>
-      <aside className="import-insights">
-        <section className="panel">
-          <h3>Structure reconnue</h3>
-          <strong>{cv.sections.length}</strong>
-          <p>
-            rubriques détectées
-            <br />
-            {cv.skills.length} compétences techniques
-            <br />2 colonnes analysées séparément
-          </p>
+
+      <aside className="cv-right">
+        <section className="panel completeness">
+          <div className="title">
+            <b>Structure reconnue</b>
+          </div>
+          <div>
+            <strong>{cv.sections.length}</strong>
+            <span>
+              <b>rubriques mappées</b>
+              <p>
+                {cv.skills.length} compétences techniques
+                <br />
+                Mise en page normalisée au modèle Nexora.
+              </p>
+            </span>
+          </div>
         </section>
-        <section className="panel">
-          <h3>Fichier analysé</h3>
-          <b>{file.name}</b>
-          <small>{(file.size / 1024).toFixed(0)} Ko · PDF</small>
-          <p className="success">
-            <I.CircleCheck /> Fiche mise à jour
-          </p>
+        <section className="panel suggestions">
+          <div className="title">
+            <b>Rubriques du modèle</b>
+          </div>
+          {(['profile', 'experience', 'education', 'skills', 'projects', 'languages', 'interests', 'certifications'] as Key[]).map(
+            (k) => {
+              const found = cv.sections.some((s) => s.key === k);
+              return (
+                <p key={k}>
+                  <i>{found ? '✓' : '○'}</i>
+                  <span>
+                    <b>{LABELS[k]}</b>
+                    <small>{found ? 'Détectée' : 'Non présente'}</small>
+                  </span>
+                </p>
+              );
+            },
+          )}
         </section>
       </aside>
     </div>
