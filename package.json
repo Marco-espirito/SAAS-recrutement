@@ -1,5 +1,5 @@
 {
-  "name": "sites-project",
+  "name": "nexora",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -12,7 +12,9 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "build:vercel": "node scripts/prepare-pdf-worker.mjs && next build",
-    "dev:vercel": "node scripts/prepare-pdf-worker.mjs && next dev"
+    "dev:vercel": "node scripts/prepare-pdf-worker.mjs && next dev",
+    "docker:build": "docker build -t nexora:latest .",
+    "docker:up": "docker compose up --build"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

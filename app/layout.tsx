@@ -1,29 +1,19 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+import './nexora-v2.css';
 
 export const metadata: Metadata = {
-  title: 'JobPilot — Recrutement assisté par IA',
-  description: 'Plateforme de recherche d’emploi et de gestion des recrutements assistée par IA.',
+  title: 'Nexora — AI Recruitment & Career OS',
+  description: 'CRM recrutement, recherche d’emploi et automatisations pilotés par une IA contextuelle.',
   openGraph: {
-    title: 'JobPilot — Recrutement assisté par IA',
-    description: 'Le recrutement, piloté par l’IA.',
+    title: 'Nexora — AI Recruitment & Career OS',
+    description: 'Le système d’exploitation du recrutement et de la carrière.',
     images: [{ url: '/og.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'JobPilot — Recrutement assisté par IA',
-    description: 'Le recrutement, piloté par l’IA.',
+    title: 'Nexora — AI Recruitment & Career OS',
+    description: 'Le système d’exploitation du recrutement et de la carrière.',
     images: ['/og.png'],
   },
 };
@@ -35,11 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
