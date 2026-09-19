@@ -196,10 +196,15 @@ export function structure(all: Line[], fallbackName: string): ParsedCV {
   const texts = all.map((l) => l.text);
   const joined = texts.join('  ');
   const email = (joined.match(/[\w.+-]+@[\w-]+\.[\w.-]+/) || [])[0] || '';
+  // Numéro : accepte les formats FR (0670…), US (123-456-7890), internationaux.
   const phone =
-    (joined.match(
-      /(?:\+\d{1,3}[\s.-]?)?(?:0|\(0\))?\s?[1-9](?:[\s.-]?\d{2}){4}|\b0\d{9}\b/,
-    ) || [])[0] || '';
+    (joined.match(/(?:\+\d{1,3}[\s.-]?)?(?:\(\d{1,4}\)[\s.-]?)?\d{2,4}(?:[\s.-]?\d{2,4}){2,5}/g) ||
+      [])
+      .map((s) => s.trim())
+      .find((s) => {
+        const d = s.replace(/\D/g, '');
+        return d.length >= 8 && d.length <= 15;
+      }) || '';
   const linkedin =
     texts.find((t) => /linkedin\.com|(^|\s|\/)in\/[\w.-]/i.test(t)) || '';
   const github =
@@ -218,6 +223,9 @@ export function structure(all: Line[], fallbackName: string): ParsedCV {
       ),
     ) ||
     texts.find((t) => /\b\d{5}\s+[A-ZÀ-Ý][\wà-ÿ' -]+$/.test(clean(t))) ||
+    (joined.match(
+      /\d+\s+[A-Za-z][\w.]*(?:\s+[A-Za-z][\w.]*)*?\s+(?:St|Street|Ave|Avenue|Rd|Road|Rue|Blvd|Drive|Dr|Lane|Ln)\b\.?,?\s*[A-Za-z][A-Za-z\s]*?(?=\s*[|]|\s{2,}|$)/i,
+    ) || [])[0]?.trim() ||
     '';
   const contactValues = new Set(
     [email, phone, linkedin, github, website, age, location].filter(Boolean),
@@ -236,9 +244,11 @@ export function structure(all: Line[], fallbackName: string): ParsedCV {
           nameLine &&
           l !== nameLine &&
           l.y < nameLine.y &&
-          nameLine.y - l.y < 60 &&
-          l.size >= median * 1.15 &&
+          nameLine.y - l.y < 90 &&
+          l.size >= bodySize * 1.02 &&
           l.size < nameLine.size &&
+          clean(l.text).length <= 60 &&
+          !/[@|]/.test(l.text) &&
           !contactValues.has(l.text),
       )
       .sort((a, b) => b.y - a.y)[0]?.text || '';
@@ -346,12 +356,28 @@ export async function parseCV(file: File): Promise<ParsedCV> {
     }
     for (const row of rows.values()) {
       row.frags.sort((a, b) => a.x - b.x);
+      // Seuil d'espacement : par défaut ~0,3em. Pour un titre en lettres
+      // espacées (« E M A A W A R N E R »), on n'insère un espace qu'aux
+      // vraies coupures de mots (grands écarts) et on colle les lettres.
+      const gaps: number[] = [];
+      for (let i = 1; i < row.frags.length; i++)
+        gaps.push(row.frags[i].x - (row.frags[i - 1].x + row.frags[i - 1].w));
+      const avgLen =
+        row.frags.reduce((s, f) => s + f.str.trim().length, 0) /
+        row.frags.length;
+      const spaced = row.frags.length >= 4 && avgLen <= 1.6;
+      let threshold = row.frags[0]?.size * 0.3 || 3;
+      if (spaced) {
+        const pos = gaps.filter((g) => g > 0).sort((a, b) => a - b);
+        const medGap = pos[Math.floor(pos.length / 2)] || 0;
+        threshold = Math.max(medGap * 1.9, row.frags[0].size * 0.4);
+      }
       // Reconstruit le texte : espace seulement si l'écart le justifie
-      // (évite les coupures parasites du type « Cal cul » → « Calcul »).
+      // (évite aussi « Cal cul » → « Calcul »).
       let text = '';
       let prevEnd: number | null = null;
       for (const f of row.frags) {
-        if (prevEnd !== null && f.x - prevEnd > f.size * 0.3) text += ' ';
+        if (prevEnd !== null && f.x - prevEnd > threshold) text += ' ';
         text += f.str;
         prevEnd = f.x + f.w;
       }
