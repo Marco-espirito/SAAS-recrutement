@@ -1353,9 +1353,32 @@ export default function Home() {
   let [notice, setNotice] = useState('');
   let [external, setExternal] = useState<any[]>([]);
   let [assistant, setAssistant] = useState(false);
+  const consumed = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
   function toast(x: string) {
+    consumed.current = true;
     setNotice(x);
     window.setTimeout(() => setNotice(''), 2600);
+  }
+  // Filet de sécurité : garantit qu'aucun bouton/lien ne reste sans réaction.
+  // S'exécute après les handlers explicites (phase bubble) et ne déclenche un
+  // retour que si rien d'autre ne s'est produit (ni toast, ni changement d'écran).
+  function ensureFeedback(e: React.MouseEvent) {
+    const el = (e.target as HTMLElement).closest(
+      'button, a, [role="button"]',
+    ) as HTMLElement | null;
+    if (!el || el.hasAttribute('disabled')) return;
+    if (el.dataset.live === 'true' || el.closest('[data-ask]')) return;
+    if (el.closest('.assistant, .assistant-backdrop, .ask-float')) return;
+    const label = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    const htmlBefore = mainRef.current?.innerHTML.length ?? 0;
+    requestAnimationFrame(() =>
+      window.setTimeout(() => {
+        if (consumed.current) return; // un toast a déjà répondu
+        if ((mainRef.current?.innerHTML.length ?? 0) !== htmlBefore) return; // l'écran a changé
+        toast(label ? `« ${label.slice(0, 40)} » — démo` : 'Action de démonstration');
+      }, 60),
+    );
   }
   function applied(j: any) {
     setExternal((v) => [
@@ -1430,10 +1453,17 @@ export default function Home() {
     );
   let recruiterPage = tab === 'CRM' ? <CRMPage toast={toast}/> : tab === 'Automatisations' ? <AutomationsPage toast={toast}/> : tab === 'Tableau de bord' ? <RecruiterDashboard setTab={setTab}/> : <RecruiterModule tab={tab} toast={toast}/>;
   return (
-    <div>
+    // Conteneur de délégation (non interactif en soi) : voir ensureFeedback.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+    <div
+      onClickCapture={() => {
+        consumed.current = false;
+      }}
+      onClick={ensureFeedback}
+    >
       <Sidebar mode={mode} setMode={setMode} tab={tab} setTab={setTab} toast={toast} />
       <Top mode={mode} toast={toast} />
-      <main onClickCapture={legacyAction}>
+      <main ref={mainRef} onClickCapture={legacyAction}>
         {mode === 'candidate' ? candidatePage : mode === 'recruiter' ? recruiterPage : <AdminConsole tab={tab} toast={toast}/>}
       </main>
       <Toast message={notice} />
