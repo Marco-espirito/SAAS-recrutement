@@ -82,11 +82,13 @@ function Sidebar({
   setMode,
   tab,
   setTab,
+  toast,
 }: {
   mode: Mode;
   setMode: (m: Mode) => void;
   tab: string;
   setTab: (t: any) => void;
+  toast: (x: string) => void;
 }) {
   let nav = mode === 'candidate' ? cNav : mode === 'recruiter' ? rNav : aNav;
   const spaces: Array<[Mode, typeof I.House, string]> = [
@@ -125,11 +127,19 @@ function Sidebar({
         })}
       </nav>
       <div className="sidefoot">
-        <button>
+        <button onClick={() => toast('Paramètres ouverts')}>
           <I.Settings />
           Paramètres
         </button>
-        <button>
+        <button
+          onClick={() =>
+            toast(
+              mode === 'admin'
+                ? 'Gestion des utilisateurs & rôles ouverte'
+                : 'Centre d’aide & support ouvert',
+            )
+          }
+        >
           <I.CircleHelp />
           {mode === 'admin' ? 'Utilisateurs & rôles' : 'Aide & Support'}
         </button>
@@ -153,7 +163,13 @@ function Sidebar({
     </aside>
   );
 }
-function Top({ mode }: { mode: Mode }) {
+function Top({
+  mode,
+  toast,
+}: {
+  mode: Mode;
+  toast: (x: string) => void;
+}) {
   const profile = mode === 'candidate'
     ? ['SM', 'Sophie Martin', 'Candidate Premium']
     : mode === 'recruiter'
@@ -161,7 +177,13 @@ function Top({ mode }: { mode: Mode }) {
       : ['MK', 'Marc Kouassi', 'Administrateur'];
   return (
     <header className="top">
-      <I.Menu />
+      <button
+        className="menu-toggle"
+        aria-label="Menu"
+        onClick={() => toast('Navigation')}
+      >
+        <I.Menu />
+      </button>
       <label>
         <I.Search />
         <input
@@ -170,15 +192,36 @@ function Top({ mode }: { mode: Mode }) {
               ? 'Rechercher une offre, entreprise, compétence...'
               : 'Rechercher un client, contact, poste ou candidat...'
           }
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const v = (e.target as HTMLInputElement).value.trim();
+              toast(v ? `Recherche : « ${v} »` : 'Saisissez un terme à rechercher');
+            }
+          }}
         />
       </label>
-      <button className="quick-create"><I.Plus/>Créer</button>
-      <span className="bell">
+      <button
+        className="quick-create"
+        onClick={() => toast('Menu de création rapide ouvert')}
+      >
+        <I.Plus />
+        Créer
+      </button>
+      <button
+        className="bell"
+        aria-label="Notifications"
+        onClick={() =>
+          toast(
+            `${mode === 'candidate' ? 3 : 8} nouvelle(s) notification(s)`,
+          )
+        }
+      >
         <I.Bell />
         <i>{mode === 'candidate' ? 3 : 8}</i>
-      </span>
+      </button>
       <button
         className="user"
+        onClick={() => toast(`Menu du profil de ${profile[1]}`)}
       >
         <i>{profile[0]}</i>
         <span>
@@ -1067,7 +1110,7 @@ function CRMPage({toast}:{toast:(x:string)=>void}) {
   const [selected,setSelected] = useState(0);
   const c = companies[selected];
   return <div className="crm-page">
-    <div className="module-head"><div><h1>CRM recrutement</h1><p>Clients, contacts et opportunités réunis dans une vue à 360°.</p></div><div><button className="action"><I.Upload/>Importer</button><button className="action primary" onClick={()=>toast('Nouvelle entreprise créée')}><I.Plus/>Nouvelle entreprise</button></div></div>
+    <div className="module-head"><div><h1>CRM recrutement</h1><p>Clients, contacts et opportunités réunis dans une vue à 360°.</p></div><div><button className="action" onClick={()=>toast('Import d’entreprises (CSV) ouvert')}><I.Upload/>Importer</button><button className="action primary" onClick={()=>toast('Nouvelle entreprise créée')}><I.Plus/>Nouvelle entreprise</button></div></div>
     <section className="stats compact four"><div><b>Entreprises</b><strong>48</strong><small>+6 ce mois</small></div><div><b>Contacts</b><strong>126</strong><small>18 décideurs actifs</small></div><div><b>Postes ouverts</b><strong>24</strong><small>8 prioritaires</small></div><div><b>Placements</b><strong>9</strong><small>Ce trimestre</small></div></section>
     <div className="crm-layout">
       <section className="panel company-list"><header><b>Entreprises</b><label><I.Search/><input placeholder="Rechercher..." /></label></header>{companies.map((x,n)=><button key={x.name} className={selected===n?'selected':''} onClick={()=>setSelected(n)}><i>{x.name.slice(0,2).toUpperCase()}</i><span><b>{x.name}</b><small>{x.sector} · {x.city}</small></span><em>{x.jobs} postes</em></button>)}</section>
@@ -1116,15 +1159,15 @@ const talentRows = [
 ];
 
 function RecruiterModule({tab,toast}:{tab:string;toast:(x:string)=>void}) {
-  if(tab==='Candidats') return <div><ModuleHero eyebrow="TALENT INTELLIGENCE" title="Candidats" subtitle="Un vivier qualifié, enrichi et priorisé par Nexora AI." action="Ajouter un candidat" Icon={I.Users}/><section className="talent-layout"><div className="panel talent-table"><header><label><I.Search/><input placeholder="Rechercher un candidat, une compétence..."/></label><button><I.Filter/>Filtres avancés</button></header><div className="table-head"><span>Candidat</span><span>Poste cible</span><span>Matching</span><span>Localisation</span><span>Statut</span></div>{talentRows.map((r,n)=><article key={r[0]}><i>{r[0].split(' ').map(x=>x[0]).join('')}</i><span><b>{r[0]}</b><small>{n+3} ans d’expérience · CV enrichi</small></span><b>{r[1]}</b><strong>{r[2]}</strong><span>{r[4]}</span><em className={`status s${n}`}>{r[3]}</em><button onClick={()=>toast(`Profil de ${r[0]} ouvert`)}><I.ChevronRight/></button></article>)}</div><aside><section className="panel ai-shortlist"><I.Sparkles/><small>NEXORA AI</small><h3>Shortlist intelligente</h3><p>4 profils correspondent à plus de 85 % au poste Data Analyst d’ACME.</p><button data-ask="candidats">Générer la shortlist</button></section><section className="panel talent-pool"><Title t="Talent pools" link="Gérer"/>{[['Data & BI','48'],['Engineering','36'],['Product','21'],['Marketing','18']].map(x=><p key={x[0]}><span>{x[0]}</span><b>{x[1]}</b></p>)}</section></aside></section></div>;
-  if(tab==='Postes ouverts') return <div><ModuleHero eyebrow="RECRUITMENT" title="Postes ouverts" subtitle="Pilotez vos missions et identifiez les blocages avant qu’ils ne ralentissent vos recrutements." action="Nouveau poste" Icon={I.BriefcaseBusiness}/><section className="job-cards">{[['Data Analyst','ACME Corp','12','92%','Prioritaire'],['Data Engineer','Orange','8','89%','Actif'],['Product Manager','GreenTech','16','86%','Actif'],['BI Analyst','Sopra Steria','6','81%','À relancer']].map((x,n)=><article className="panel" key={x[0]}><header><i><I.BriefcaseBusiness/></i><em className={n===3?'warn':''}>{x[4]}</em><button>•••</button></header><h3>{x[0]}</h3><p>{x[1]} · {n%2?'Paris':'Lyon'} · CDI</p><div><span><small>CANDIDATS</small><b>{x[2]}</b></span><span><small>MEILLEUR MATCH</small><b>{x[3]}</b></span><span><small>DEPUIS</small><b>{n+2} j</b></span></div><footer><span><i style={{width:`${84-n*9}%`}}/></span><button onClick={()=>toast(`Poste ${x[0]} ouvert`)}>Ouvrir <I.ArrowRight/></button></footer></article>)}</section></div>;
-  if(tab==='Pipeline') return <div><ModuleHero eyebrow="ATS PIPELINE" title="Pipeline candidats" subtitle="Faites progresser chaque talent de la qualification au placement." action="Ajouter au pipeline" Icon={I.Workflow}/><section className="modern-pipeline">{[['À qualifier','42'],['Préqualification','28'],['Entretien','12'],['Shortlist','8'],['Offre','4'],['Placé','9']].map((c,n)=><div key={c[0]}><header><i/><b>{c[0]}</b><span>{c[1]}</span></header>{talentRows.slice(0,n<2?3:2).map((p,k)=><article className="panel" key={p[0]+n}><small>{['ACME Corp','Orange','GreenTech'][k]}</small><b>{p[0]}</b><span>{p[1]}</span><footer><em>{p[2]} match</em><i>{p[0].split(' ').map(x=>x[0]).join('')}</i></footer></article>)}<button onClick={()=>toast('Nouveau candidat ajouté')}>＋ Ajouter</button></div>)}</section></div>;
-  if(tab==='Entretiens') return <div><ModuleHero eyebrow="SCHEDULING" title="Entretiens" subtitle="Centralisez les rendez-vous, les évaluations et les comptes rendus." action="Planifier" Icon={I.CalendarDays}/><section className="interview-layout"><div className="panel schedule"><header><button>‹</button><h3>Septembre 2026</h3><button>›</button></header><div className="week-head">{['Lun 21','Mar 22','Mer 23','Jeu 24','Ven 25'].map(x=><b key={x}>{x}</b>)}</div><div className="week-grid">{[0,1,2,3,4].map(d=><div key={d}>{d!==1&&<article className={`event e${d}`}><small>{9+d}:30</small><b>{talentRows[d]?.[0]||'Sophie Martin'}</b><span>{d%2?'Visio':'Bureau'} · 45 min</span></article>}{d===2&&<article className="event second"><small>15:00</small><b>Thomas Bernard</b><span>Technique · 60 min</span></article>}</div>)}</div></div><aside className="panel interview-list"><Title t="À venir" link="Voir l’agenda"/>{talentRows.slice(0,4).map((p,n)=><p key={p[0]}><time><b>{21+n}</b><small>SEP</small></time><span><b>{p[0]}</b><small>{p[1]} · {n+9}:30</small></span><button><I.Video/></button></p>)}</aside></section></div>;
-  return <div><ModuleHero eyebrow="INSIGHTS" title="Analytics recrutement" subtitle="Mesurez la performance, les délais et la qualité de vos recrutements." action="Exporter le rapport" Icon={I.ChartNoAxesCombined}/><section className="analytics-kpis"><div><small>TIME TO HIRE</small><b>24 jours</b><em>↓ 3 jours</em></div><div><small>TAUX DE CONVERSION</small><b>18,7%</b><em>↑ 2,3 pts</em></div><div><small>COÛT PAR RECRUTEMENT</small><b>1 280 €</b><em>↓ 8%</em></div><div><small>SATISFACTION CLIENT</small><b>4,8 / 5</b><em>↑ 0,2</em></div></section><section className="analytics-grid"><div className="panel"><Title t="Performance du funnel" link="6 derniers mois"/><div className="funnel">{[['Candidats','1 248',100],['Qualifiés','486',72],['Entretiens','184',48],['Offres','42',28],['Placements','31',20]].map(x=><p key={x[0]}><span>{x[0]}</span><i style={{width:`${x[2]}%`}}/><b>{x[1]}</b></p>)}</div></div><div className="panel source-chart"><Title t="Sources des meilleurs candidats"/><div className="donut"><strong>1 248<small>candidats</small></strong></div>{[['Cooptation','38%'],['Job boards','29%'],['Sourcing IA','21%'],['Candidatures','12%']].map(x=><p key={x[0]}><i/><span>{x[0]}</span><b>{x[1]}</b></p>)}</div></section></div>;
+  if(tab==='Candidats') return <div><ModuleHero eyebrow="TALENT INTELLIGENCE" title="Candidats" subtitle="Un vivier qualifié, enrichi et priorisé par Nexora AI." action="Ajouter un candidat" Icon={I.Users} onAction={()=>toast('Formulaire d’ajout de candidat ouvert')}/><section className="talent-layout"><div className="panel talent-table"><header><label><I.Search/><input placeholder="Rechercher un candidat, une compétence..."/></label><button onClick={()=>toast('Filtres avancés ouverts')}><I.Filter/>Filtres avancés</button></header><div className="table-head"><span>Candidat</span><span>Poste cible</span><span>Matching</span><span>Localisation</span><span>Statut</span></div>{talentRows.map((r,n)=><article key={r[0]}><i>{r[0].split(' ').map(x=>x[0]).join('')}</i><span><b>{r[0]}</b><small>{n+3} ans d’expérience · CV enrichi</small></span><b>{r[1]}</b><strong>{r[2]}</strong><span>{r[4]}</span><em className={`status s${n}`}>{r[3]}</em><button onClick={()=>toast(`Profil de ${r[0]} ouvert`)}><I.ChevronRight/></button></article>)}</div><aside><section className="panel ai-shortlist"><I.Sparkles/><small>NEXORA AI</small><h3>Shortlist intelligente</h3><p>4 profils correspondent à plus de 85 % au poste Data Analyst d’ACME.</p><button data-ask="candidats">Générer la shortlist</button></section><section className="panel talent-pool"><Title t="Talent pools" link="Gérer"/>{[['Data & BI','48'],['Engineering','36'],['Product','21'],['Marketing','18']].map(x=><p key={x[0]}><span>{x[0]}</span><b>{x[1]}</b></p>)}</section></aside></section></div>;
+  if(tab==='Postes ouverts') return <div><ModuleHero eyebrow="RECRUITMENT" title="Postes ouverts" subtitle="Pilotez vos missions et identifiez les blocages avant qu’ils ne ralentissent vos recrutements." action="Nouveau poste" Icon={I.BriefcaseBusiness} onAction={()=>toast('Création d’un nouveau poste')}/><section className="job-cards">{[['Data Analyst','ACME Corp','12','92%','Prioritaire'],['Data Engineer','Orange','8','89%','Actif'],['Product Manager','GreenTech','16','86%','Actif'],['BI Analyst','Sopra Steria','6','81%','À relancer']].map((x,n)=><article className="panel" key={x[0]}><header><i><I.BriefcaseBusiness/></i><em className={n===3?'warn':''}>{x[4]}</em><button onClick={()=>toast(`Options du poste ${x[0]}`)}>•••</button></header><h3>{x[0]}</h3><p>{x[1]} · {n%2?'Paris':'Lyon'} · CDI</p><div><span><small>CANDIDATS</small><b>{x[2]}</b></span><span><small>MEILLEUR MATCH</small><b>{x[3]}</b></span><span><small>DEPUIS</small><b>{n+2} j</b></span></div><footer><span><i style={{width:`${84-n*9}%`}}/></span><button onClick={()=>toast(`Poste ${x[0]} ouvert`)}>Ouvrir <I.ArrowRight/></button></footer></article>)}</section></div>;
+  if(tab==='Pipeline') return <div><ModuleHero eyebrow="ATS PIPELINE" title="Pipeline candidats" subtitle="Faites progresser chaque talent de la qualification au placement." action="Ajouter au pipeline" Icon={I.Workflow} onAction={()=>toast('Ajout d’un candidat au pipeline')}/><section className="modern-pipeline">{[['À qualifier','42'],['Préqualification','28'],['Entretien','12'],['Shortlist','8'],['Offre','4'],['Placé','9']].map((c,n)=><div key={c[0]}><header><i/><b>{c[0]}</b><span>{c[1]}</span></header>{talentRows.slice(0,n<2?3:2).map((p,k)=><article className="panel" key={p[0]+n}><small>{['ACME Corp','Orange','GreenTech'][k]}</small><b>{p[0]}</b><span>{p[1]}</span><footer><em>{p[2]} match</em><i>{p[0].split(' ').map(x=>x[0]).join('')}</i></footer></article>)}<button onClick={()=>toast('Nouveau candidat ajouté')}>＋ Ajouter</button></div>)}</section></div>;
+  if(tab==='Entretiens') return <div><ModuleHero eyebrow="SCHEDULING" title="Entretiens" subtitle="Centralisez les rendez-vous, les évaluations et les comptes rendus." action="Planifier" Icon={I.CalendarDays} onAction={()=>toast('Planification d’un entretien')}/><section className="interview-layout"><div className="panel schedule"><header><button onClick={()=>toast('Semaine précédente')}>‹</button><h3>Septembre 2026</h3><button onClick={()=>toast('Semaine suivante')}>›</button></header><div className="week-head">{['Lun 21','Mar 22','Mer 23','Jeu 24','Ven 25'].map(x=><b key={x}>{x}</b>)}</div><div className="week-grid">{[0,1,2,3,4].map(d=><div key={d}>{d!==1&&<article className={`event e${d}`}><small>{9+d}:30</small><b>{talentRows[d]?.[0]||'Sophie Martin'}</b><span>{d%2?'Visio':'Bureau'} · 45 min</span></article>}{d===2&&<article className="event second"><small>15:00</small><b>Thomas Bernard</b><span>Technique · 60 min</span></article>}</div>)}</div></div><aside className="panel interview-list"><Title t="À venir" link="Voir l’agenda"/>{talentRows.slice(0,4).map((p,n)=><p key={p[0]}><time><b>{21+n}</b><small>SEP</small></time><span><b>{p[0]}</b><small>{p[1]} · {n+9}:30</small></span><button onClick={()=>toast(`Visioconférence avec ${p[0]}`)}><I.Video/></button></p>)}</aside></section></div>;
+  return <div><ModuleHero eyebrow="INSIGHTS" title="Analytics recrutement" subtitle="Mesurez la performance, les délais et la qualité de vos recrutements." action="Exporter le rapport" Icon={I.ChartNoAxesCombined} onAction={()=>toast('Export du rapport analytics lancé')}/><section className="analytics-kpis"><div><small>TIME TO HIRE</small><b>24 jours</b><em>↓ 3 jours</em></div><div><small>TAUX DE CONVERSION</small><b>18,7%</b><em>↑ 2,3 pts</em></div><div><small>COÛT PAR RECRUTEMENT</small><b>1 280 €</b><em>↓ 8%</em></div><div><small>SATISFACTION CLIENT</small><b>4,8 / 5</b><em>↑ 0,2</em></div></section><section className="analytics-grid"><div className="panel"><Title t="Performance du funnel" link="6 derniers mois"/><div className="funnel">{[['Candidats','1 248',100],['Qualifiés','486',72],['Entretiens','184',48],['Offres','42',28],['Placements','31',20]].map(x=><p key={x[0]}><span>{x[0]}</span><i style={{width:`${x[2]}%`}}/><b>{x[1]}</b></p>)}</div></div><div className="panel source-chart"><Title t="Sources des meilleurs candidats"/><div className="donut"><strong>1 248<small>candidats</small></strong></div>{[['Cooptation','38%'],['Job boards','29%'],['Sourcing IA','21%'],['Candidatures','12%']].map(x=><p key={x[0]}><i/><span>{x[0]}</span><b>{x[1]}</b></p>)}</div></section></div>;
 }
 
-function ModuleHero({eyebrow,title,subtitle,action,Icon}:{eyebrow:string;title:string;subtitle:string;action:string;Icon:any}) {
-  return <header className="module-hero"><div><small>{eyebrow}</small><h1>{title}</h1><p>{subtitle}</p></div><button className="action primary"><Icon/>{action}</button></header>
+function ModuleHero({eyebrow,title,subtitle,action,Icon,onAction}:{eyebrow:string;title:string;subtitle:string;action:string;Icon:any;onAction?:()=>void}) {
+  return <header className="module-hero"><div><small>{eyebrow}</small><h1>{title}</h1><p>{subtitle}</p></div><button className="action primary" onClick={onAction}><Icon/>{action}</button></header>
 }
 const cols = [
   ['Nouveaux', '142', 'blue'],
@@ -1284,10 +1327,10 @@ function AdminConsole({tab,toast}:{tab:string;toast:(x:string)=>void}) {
     'Pipeline':{eyebrow:'PLATEFORME',title:'Pipeline global',subtitle:'Toutes les étapes de recrutement consolidées.',items:[['Nouveaux','1 248','100%','Entrée'],['Qualifiés','486','38,9%','Conversion'],['Entretiens','184','14,7%','Conversion'],['Placements','31','2,5%','Conversion']]},
   };
   const view=configs[tab]||configs['Statistiques'];
-  return <div><ModuleHero eyebrow={view.eyebrow} title={view.title} subtitle={view.subtitle} action="Exporter" Icon={I.Download}/><section className="panel admin-table"><header><label><I.Search/><input placeholder={`Rechercher dans ${tab.toLowerCase()}...`}/></label><button><I.Filter/>Filtrer</button><button className="action primary" onClick={()=>toast('Nouvel élément créé')}><I.Plus/>Ajouter</button></header>{view.items.map((x,n)=><article key={x[0]}><i>{x[0].slice(0,2).toUpperCase()}</i><span><b>{x[0]}</b><small>ID NX-{2400+n}</small></span><strong>{x[1]}</strong><em>{x[2]}</em><small>{x[3]}</small><button onClick={()=>toast(`${x[0]} ouvert`)}><I.MoreHorizontal/></button></article>)}</section></div>;
+  return <div><ModuleHero eyebrow={view.eyebrow} title={view.title} subtitle={view.subtitle} action="Exporter" Icon={I.Download} onAction={()=>toast(`Export de « ${view.title} » lancé`)}/><section className="panel admin-table"><header><label><I.Search/><input placeholder={`Rechercher dans ${tab.toLowerCase()}...`}/></label><button onClick={()=>toast('Filtres appliqués')}><I.Filter/>Filtrer</button><button className="action primary" onClick={()=>toast('Nouvel élément créé')}><I.Plus/>Ajouter</button></header>{view.items.map((x,n)=><article key={x[0]}><i>{x[0].slice(0,2).toUpperCase()}</i><span><b>{x[0]}</b><small>ID NX-{2400+n}</small></span><strong>{x[1]}</strong><em>{x[2]}</em><small>{x[3]}</small><button onClick={()=>toast(`${x[0]} ouvert`)}><I.MoreHorizontal/></button></article>)}</section></div>;
 }
 
-function NexoraAssistant({mode,onClose}:{mode:Mode;onClose:()=>void}) {
+function NexoraAssistant({mode,onClose,toast}:{mode:Mode;onClose:()=>void;toast:(x:string)=>void}) {
   const [query,setQuery] = useState('');
   const [answer,setAnswer] = useState('');
   const suggestions = mode === 'candidate'
@@ -1302,7 +1345,7 @@ function NexoraAssistant({mode,onClose}:{mode:Mode;onClose:()=>void}) {
     else if(q.includes('candidat')) setAnswer('4 profils dépassent 85 % de matching. Sophie Martin (92 %) et Thomas Bernard (89 %) sont disponibles immédiatement. Je peux préparer les messages de prise de contact.');
     else setAnswer('J’ai croisé les données CRM, les candidatures, le matching et les tâches. Votre priorité est de traiter 3 relances et 2 profils à fort potentiel aujourd’hui.');
   }
-  return <div className="assistant-backdrop" onClick={onClose}><aside className="assistant" onClick={e=>e.stopPropagation()}><header><div className="ai-orb"><I.Sparkles/></div><span><b>Ask Nexora</b><small>Assistant connecté à vos données</small></span><button onClick={onClose}><I.X/></button></header><div className="assistant-body"><div className="assistant-welcome"><I.Bot/><h2>Comment puis-je vous aider ?</h2><p>Je peux analyser vos offres, candidatures, clients et workflows pour vous proposer la prochaine meilleure action.</p></div>{!answer&&<div className="suggestions">{suggestions.map(x=><button key={x} onClick={()=>ask(x)}>{x}<I.ArrowUpRight/></button>)}</div>}{answer&&<div className="ai-answer"><small>ANALYSE NEXORA</small><p>{answer}</p><div><button>Voir les éléments</button><button className="primary">Préparer les actions</button></div></div>}</div><footer><div><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&ask()} placeholder="Demandez quelque chose à Nexora…"/><button onClick={()=>ask()}><I.ArrowUp/></button></div><small>Nexora peut faire des erreurs. Vérifiez les actions importantes.</small></footer></aside></div>
+  return <div className="assistant-backdrop" onClick={onClose}><aside className="assistant" onClick={e=>e.stopPropagation()}><header><div className="ai-orb"><I.Sparkles/></div><span><b>Ask Nexora</b><small>Assistant connecté à vos données</small></span><button onClick={onClose}><I.X/></button></header><div className="assistant-body"><div className="assistant-welcome"><I.Bot/><h2>Comment puis-je vous aider ?</h2><p>Je peux analyser vos offres, candidatures, clients et workflows pour vous proposer la prochaine meilleure action.</p></div>{!answer&&<div className="suggestions">{suggestions.map(x=><button key={x} onClick={()=>ask(x)}>{x}<I.ArrowUpRight/></button>)}</div>}{answer&&<div className="ai-answer"><small>ANALYSE NEXORA</small><p>{answer}</p><div><button onClick={()=>toast('Éléments liés affichés')}>Voir les éléments</button><button className="primary" onClick={()=>{toast('Actions préparées par Nexora');onClose()}}>Préparer les actions</button></div></div>}</div><footer><div><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&ask()} placeholder="Demandez quelque chose à Nexora…"/><button onClick={()=>ask()}><I.ArrowUp/></button></div><small>Nexora peut faire des erreurs. Vérifiez les actions importantes.</small></footer></aside></div>
 }
 export default function Home() {
   let [mode, setMode] = useState<Mode>('candidate');
@@ -1388,8 +1431,8 @@ export default function Home() {
   let recruiterPage = tab === 'CRM' ? <CRMPage toast={toast}/> : tab === 'Automatisations' ? <AutomationsPage toast={toast}/> : tab === 'Tableau de bord' ? <RecruiterDashboard setTab={setTab}/> : <RecruiterModule tab={tab} toast={toast}/>;
   return (
     <div>
-      <Sidebar mode={mode} setMode={setMode} tab={tab} setTab={setTab} />
-      <Top mode={mode} />
+      <Sidebar mode={mode} setMode={setMode} tab={tab} setTab={setTab} toast={toast} />
+      <Top mode={mode} toast={toast} />
       <main onClickCapture={legacyAction}>
         {mode === 'candidate' ? candidatePage : mode === 'recruiter' ? recruiterPage : <AdminConsole tab={tab} toast={toast}/>}
       </main>
@@ -1400,7 +1443,7 @@ export default function Home() {
       >
         <I.Sparkles/> Ask Nexora
       </button>
-      {assistant&&<NexoraAssistant mode={mode} onClose={()=>setAssistant(false)}/>}
+      {assistant&&<NexoraAssistant mode={mode} onClose={()=>setAssistant(false)} toast={toast}/>}
     </div>
   );
 }

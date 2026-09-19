@@ -3,6 +3,9 @@ import './globals.css';
 import './nexora-v2.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+  ),
   title: 'Nexora — AI Recruitment & Career OS',
   description: 'CRM recrutement, recherche d’emploi et automatisations pilotés par une IA contextuelle.',
   openGraph: {
