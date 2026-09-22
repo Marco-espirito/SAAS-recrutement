@@ -5,13 +5,7 @@ import './auth.css';
 import { AuthGate } from './features/auth/auth-gate';
 
 export const metadata: Metadata = {
-<<<<<<< Updated upstream
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-  ),
-=======
   metadataBase: new URL(process.env.APP_URL ?? 'http://localhost:3000'),
->>>>>>> Stashed changes
   title: 'Nexora — AI Recruitment & Career OS',
   description:
     'CRM recrutement, recherche d’emploi et automatisations pilotés par une IA contextuelle.',
