@@ -3,6 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import * as I from 'lucide-react';
 
 type Toast = (message: string) => void;
+type MatchCriterion = {
+  key: string;
+  label: string;
+  weight: number;
+  score: number;
+  detail: string;
+};
+type MissingSkill = { skill: string; evidence: string };
 type Job = {
   id: string | number;
   company: string;
@@ -14,6 +22,12 @@ type Job = {
   saved?: boolean;
   applied?: boolean;
   url?: string;
+  matchId?: string;
+  dataComplete?: boolean;
+  matchBreakdown?: MatchCriterion[];
+  missingSkills?: MissingSkill[];
+  matchedSkills?: string[];
+  feedback?: 'RELEVANT' | 'NOT_RELEVANT' | 'APPLIED';
 };
 const Btn = ({
   children,
@@ -283,6 +297,29 @@ export function MatchingPage({ toast }: { toast: Toast }) {
     );
     toast('Brouillon personnalisé préparé');
   }
+  async function sendFeedback(feedback: 'RELEVANT' | 'NOT_RELEVANT') {
+    if (!selected?.matchId) return;
+    const response = await fetch(`/api/candidate/matches/${selected.matchId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ feedback }),
+    });
+    const result = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string };
+    };
+    if (!response.ok) {
+      toast(result.error?.message ?? 'Le suivi de qualité a échoué');
+      return;
+    }
+    const apply = (j: Job) => (j.id === selected.id ? { ...j, feedback } : j);
+    setJobs((v) => v.map(apply));
+    setSelected((s) => (s ? apply(s) : s));
+    toast(
+      feedback === 'RELEVANT'
+        ? 'Merci, ce match est marqué pertinent'
+        : 'Merci, ce match est marqué non pertinent',
+    );
+  }
   async function addApplication() {
     if (!selected) return;
     const response = await fetch('/api/applications', {
@@ -308,7 +345,7 @@ export function MatchingPage({ toast }: { toast: Toast }) {
     <div>
       <PageHead
         title="Matching des offres ✦"
-        subtitle="Les scores et compétences proviennent du fournisseur d’offres connecté."
+        subtitle="Score calculé par le moteur de matching Nexora à partir de votre profil, avec justification détaillée."
       >
         <Btn onClick={() => void refresh()}>
           <I.RefreshCw />
@@ -380,45 +417,63 @@ export function MatchingPage({ toast }: { toast: Toast }) {
                   <small>{selected.location}</small>
                 </span>
                 <strong>
-                  {selected.match}%<small>Score fournisseur</small>
+                  {selected.match}%
+                  <small>
+                    {selected.matchBreakdown
+                      ? 'Score Nexora'
+                      : 'Score fournisseur'}
+                  </small>
                 </strong>
               </header>
               <h3>✦ Pourquoi ce match</h3>
-              <p>
-                Le fournisseur connecté estime cette adéquation à{' '}
-                {selected.match} % pour le poste de {selected.title}. Vérifiez
-                toujours le détail de l’offre avant de candidater.
-              </p>
-              <div className="match-metrics">
-                <span>
-                  Niveau d’adéquation<b>{selected.match}%</b>
-                  <small>Excellent match</small>
-                </span>
-                <span>
-                  Compétences listées<b>{selected.skills.length}</b>
-                  <small>dans l’offre</small>
-                </span>
-                <span>
-                  Source<b>Externe</b>
-                  <small>fournisseur configuré</small>
-                </span>
-              </div>
+              {selected.matchBreakdown?.length ? (
+                <div className="match-metrics">
+                  {selected.matchBreakdown.map((c) => (
+                    <span key={c.key}>
+                      {c.label}
+                      <b>{c.score}%</b>
+                      <small>{c.detail}</small>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p>
+                  Le fournisseur connecté estime cette adéquation à{' '}
+                  {selected.match} % pour le poste de {selected.title}.
+                  Complétez votre profil candidat pour obtenir une analyse
+                  Nexora justifiée. Vérifiez toujours le détail de l’offre avant
+                  de candidater.
+                </p>
+              )}
               <div className="skill-boxes">
                 <div>
                   <h3>✓ Compétences alignées</h3>
-                  {selected.skills.map((x) => (
+                  {(selected.matchedSkills ?? selected.skills).map((x) => (
                     <span key={x}>{x}</span>
                   ))}
-                  {!selected.skills.length && (
-                    <small>Aucune compétence fournie.</small>
+                  {!(selected.matchedSkills ?? selected.skills).length && (
+                    <small>Aucune compétence alignée détectée.</small>
                   )}
                 </div>
                 <div>
-                  <h3>⌕ Analyse responsable</h3>
-                  <small>
-                    Nexora n’invente pas de compétences manquantes sans CV
-                    analysé et sans preuve fournie par le connecteur.
-                  </small>
+                  <h3>⌕ Compétences manquantes</h3>
+                  {selected.dataComplete === false ? (
+                    <small>
+                      Profil sans compétences déclarées : Nexora n’invente pas
+                      de compétences manquantes sans preuve. Complétez votre CV
+                      pour une analyse fiable.
+                    </small>
+                  ) : selected.missingSkills?.length ? (
+                    selected.missingSkills.map((m) => (
+                      <span key={m.skill} title={m.evidence}>
+                        {m.skill}
+                      </span>
+                    ))
+                  ) : (
+                    <small>
+                      Aucune compétence manquante détectée pour cette offre.
+                    </small>
+                  )}
                 </div>
                 <aside>
                   <h3>Passez à l’action</h3>
@@ -426,6 +481,22 @@ export function MatchingPage({ toast }: { toast: Toast }) {
                   <Btn onClick={() => void addApplication()}>
                     Ajouter à mes candidatures
                   </Btn>
+                  {selected.matchId && (
+                    <>
+                      <Btn
+                        primary={selected.feedback === 'RELEVANT'}
+                        onClick={() => void sendFeedback('RELEVANT')}
+                      >
+                        Match pertinent
+                      </Btn>
+                      <Btn
+                        primary={selected.feedback === 'NOT_RELEVANT'}
+                        onClick={() => void sendFeedback('NOT_RELEVANT')}
+                      >
+                        Pas pertinent
+                      </Btn>
+                    </>
+                  )}
                 </aside>
               </div>
               {letter && (
