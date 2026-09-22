@@ -1,13 +1,20 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './nexora-v2.css';
+import './auth.css';
+import { AuthGate } from './features/auth/auth-gate';
 
 export const metadata: Metadata = {
+<<<<<<< Updated upstream
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
   ),
+=======
+  metadataBase: new URL(process.env.APP_URL ?? 'http://localhost:3000'),
+>>>>>>> Stashed changes
   title: 'Nexora — AI Recruitment & Career OS',
-  description: 'CRM recrutement, recherche d’emploi et automatisations pilotés par une IA contextuelle.',
+  description:
+    'CRM recrutement, recherche d’emploi et automatisations pilotés par une IA contextuelle.',
   openGraph: {
     title: 'Nexora — AI Recruitment & Career OS',
     description: 'Le système d’exploitation du recrutement et de la carrière.',
@@ -28,7 +35,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        <AuthGate>{children}</AuthGate>
+      </body>
     </html>
   );
 }

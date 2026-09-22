@@ -1,4 +1,37 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nexora}
+      POSTGRES_USER: ${POSTGRES_USER:-nexora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexora_local_change_me}
+    volumes:
+      - nexora_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-nexora} -d ${POSTGRES_DB:-nexora}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    image: nexora-migrator:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nexora}:${POSTGRES_PASSWORD:-nexora_local_change_me}@postgres:5432/${POSTGRES_DB:-nexora}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-nexora_app}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-nexora_app_local_change_me}
+
   nexora:
     container_name: nexora
     build:
@@ -8,17 +41,53 @@ services:
     init: true
     restart: unless-stopped
     ports:
-      - "${NEXORA_PORT:-3000}:3000"
+      - '${NEXORA_PORT:-3000}:3000'
     environment:
       NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: '1'
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:-nexora_app}:${POSTGRES_APP_PASSWORD:-nexora_app_local_change_me}@postgres:5432/${POSTGRES_DB:-nexora}
+      APP_URL: http://localhost:${NEXORA_PORT:-3000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      EMAIL_PROVIDER_URL: ${EMAIL_PROVIDER_URL:-}
+      EMAIL_PROVIDER_API_KEY: ${EMAIL_PROVIDER_API_KEY:-}
+      JOBS_PROVIDER_URL: ${JOBS_PROVIDER_URL:-}
+      JOBS_PROVIDER_API_KEY: ${JOBS_PROVIDER_API_KEY:-}
+      CALENDAR_PROVIDER_URL: ${CALENDAR_PROVIDER_URL:-}
+      CALENDAR_PROVIDER_API_KEY: ${CALENDAR_PROVIDER_API_KEY:-}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-nexora_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      # Valeur de développement uniquement : fournissez une clé aléatoire en production.
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-bmV4b3JhLWRldmVsb3BtZW50LWtleS0zMi1ieXRlcyE=}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
-        - CMD
-        - node
-        - -e
-        - "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       start_period: 15s
       retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    image: nexora-worker:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nexora}:${POSTGRES_PASSWORD:-nexora_local_change_me}@postgres:5432/${POSTGRES_DB:-nexora}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  nexora_postgres_data:

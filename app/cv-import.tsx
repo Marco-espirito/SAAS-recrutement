@@ -2,6 +2,13 @@
 
 import * as I from 'lucide-react';
 
+type PdfTextItem = {
+  str?: string;
+  transform: number[];
+  height?: number;
+  fontName?: string;
+};
+
 type Key =
   | 'contact'
   | 'profile'
@@ -152,6 +159,7 @@ const skillsList = [
 ];
 
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
+<<<<<<< Updated upstream
 const norm = (s: string) =>
   clean(s)
     .normalize('NFD')
@@ -173,6 +181,45 @@ export function structure(all: Line[], fallbackName: string): ParsedCV {
   for (const s of sizes) {
     const k = Math.round(s * 2) / 2;
     freq.set(k, (freq.get(k) || 0) + 1);
+=======
+function asHeading(text: string, size: number, median: number) {
+  const n = clean(text).replace(/[:：]$/, '');
+  for (const [key, rx, label] of aliases) if (rx.test(n)) return { key, label };
+  const big = size >= median * 1.42 && n.length < 45 && !/[.@]/.test(n),
+    upper =
+      size >= median * 1.15 &&
+      n === n.toUpperCase() &&
+      /[A-ZÀ-Ý]/.test(n) &&
+      n.length > 3 &&
+      n.length < 38;
+  return big || upper
+    ? { key: 'other' as Key, label: n.replace(/\b\w/g, (c) => c.toUpperCase()) }
+    : null;
+}
+export async function parseCV(file: File): Promise<ParsedCV> {
+  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+  GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  const pdf = await getDocument({
+      data: new Uint8Array(await file.arrayBuffer()),
+    }).promise,
+    all: Line[] = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p),
+      width = page.getViewport({ scale: 1 }).width,
+      c = await page.getTextContent();
+    for (const i of c.items as PdfTextItem[]) {
+      const text = clean(i.str || '');
+      if (text)
+        all.push({
+          text,
+          x: i.transform[4],
+          y: i.transform[5] - (p - 1) * 2000,
+          size: i.height || Math.abs(i.transform[3]) || 8,
+          font: i.fontName || '',
+          column: i.transform[4] < width * 0.31 ? 'left' : 'main',
+        });
+    }
+>>>>>>> Stashed changes
   }
   let bodySize = median;
   let best = 0;

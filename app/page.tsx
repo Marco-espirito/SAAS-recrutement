@@ -14,6 +14,7 @@ import {
   type Application,
 } from './candidate-pages';
 import { ImportedCVSummary, parseCV, type ParsedCV } from './cv-import';
+<<<<<<< Updated upstream
 import { initialOffers, STATUS_LABEL, type StoredOffer } from '@/lib/offers';
 import {
   ACTIONS_CATALOG,
@@ -24,19 +25,21 @@ import {
   type ConditionGroup,
   type ConditionLeaf,
 } from './automation-builder';
+=======
+import { LiveCRMPage } from './features/crm/crm-page';
+import { LiveAutomationsPage } from './features/automations/automations-page';
+import { NexoraAssistantPanel } from './features/assistant/nexora-assistant';
+import { LiveAdminPage } from './features/admin/admin-page';
+import { SecurityPage, TeamPage } from './features/admin/team-security-page';
+import { useCurrentUser } from './features/auth/auth-gate';
+import { CandidateProfilePage } from './features/candidate/profile-page';
+import { LiveDashboard } from './features/dashboard/live-dashboard';
+import { LiveRecruiterPage } from './features/recruiter/recruiter-pages';
+>>>>>>> Stashed changes
 type Mode = 'candidate' | 'recruiter' | 'admin';
-type CandidateTab =
-  | 'Tableau de bord'
-  | 'Mon CV'
-  | 'Analyse ATS'
-  | "Offres d'emploi"
-  | 'Matching IA'
-  | 'Mes candidatures'
-  | 'Relances'
-  | 'Documents'
-  | 'Automatisations';
 const cNav = [
   [I.House, 'Tableau de bord'],
+  [I.UserRound, 'Mon profil'],
   [I.FileText, 'Mon CV'],
   [I.Target, 'Analyse ATS'],
   [I.BriefcaseBusiness, "Offres d'emploi"],
@@ -45,6 +48,7 @@ const cNav = [
   [I.RefreshCw, 'Relances'],
   [I.Zap, 'Automatisations'],
   [I.FileText, 'Documents'],
+  [I.ShieldCheck, 'Sécurité'],
 ];
 const rNav = [
   [I.House, 'Tableau de bord'],
@@ -55,61 +59,47 @@ const rNav = [
   [I.CalendarDays, 'Entretiens'],
   [I.Zap, 'Automatisations'],
   [I.ChartNoAxesCombined, 'Analytics'],
+  [I.ShieldCheck, 'Sécurité'],
 ];
 const aNav = [
   [I.House, 'Tableau de bord'],
-  [I.BriefcaseBusiness, 'Offres'],
-  [I.UserRound, 'Candidats'],
-  [I.Workflow, 'Pipeline'],
-  [I.CalendarDays, 'Entretiens'],
-  [I.Mail, 'Emails & Automations'],
-  [I.Users, 'Clients'],
-  [I.ChartNoAxesCombined, 'Statistiques'],
-];
-const jobs = [
-  ['A', 'Data Analyst', 'ACME Corp', '92%'],
-  ['◆', 'Analyste Data BI', 'GreenTech', '88%'],
-  ['◉', 'Data Engineer', 'TechFlow', '85%'],
-  ['▥', 'Chargé(e) d’études Data', 'InnovData', '75%'],
-  ['pb', 'Data Analyst – Marketing', 'People Business', '68%'],
-];
-const people = [
-  'Camille Dupont',
-  'Thomas Bernard',
-  'Sophie Martin',
-  'Lucas Moreau',
-  'Fatou Diop',
-  'Antoine Lefèvre',
-  'Inès Khaldi',
-  'Julien Petit',
-  'Claire Rousseau',
-  'Nicolas Garnier',
-  'Awa Traoré',
-  'Hugo Robert',
-  'Élodie Bernard',
-  'Mehdi Benali',
-  'Yanis Belkacem',
-  'Laura Simon',
+  [I.UsersRound, 'Équipe'],
+  [I.ShieldCheck, 'Sécurité'],
+  [I.ScrollText, 'Journal d’audit'],
+  [I.PlugZap, 'Intégrations'],
 ];
 function Sidebar({
   mode,
   setMode,
   tab,
   setTab,
+<<<<<<< Updated upstream
   toast,
+=======
+  role,
+>>>>>>> Stashed changes
 }: {
   mode: Mode;
   setMode: (m: Mode) => void;
   tab: string;
+<<<<<<< Updated upstream
   setTab: (t: any) => void;
   toast: (x: string) => void;
+=======
+  setTab: (t: string) => void;
+  role: 'OWNER' | 'ADMIN' | 'RECRUITER' | 'CANDIDATE';
+>>>>>>> Stashed changes
 }) {
-  let nav = mode === 'candidate' ? cNav : mode === 'recruiter' ? rNav : aNav;
+  const nav = mode === 'candidate' ? cNav : mode === 'recruiter' ? rNav : aNav;
   const spaces: Array<[Mode, typeof I.House, string]> = [
     ['candidate', I.UserRound, 'Candidat'],
     ['recruiter', I.Building2, 'Recruteur'],
     ['admin', I.ShieldCheck, 'Admin'],
-  ];
+  ].filter(([space]) => {
+    if (space === 'admin') return role === 'OWNER' || role === 'ADMIN';
+    if (space === 'recruiter') return role !== 'CANDIDATE';
+    return true;
+  }) as Array<[Mode, typeof I.House, string]>;
   function selectSpace(next: Mode) {
     setMode(next);
     setTab('Tableau de bord');
@@ -122,12 +112,24 @@ function Sidebar({
       </div>
       <div className="space-switcher">
         <small>ESPACE DE TRAVAIL</small>
-        <div>{spaces.map(([key,Icon,label]) => <button title={`Espace ${label}`} className={mode===key?'active':''} onClick={()=>selectSpace(key)} key={key}><Icon/><span>{label}</span></button>)}</div>
+        <div>
+          {spaces.map(([key, Icon, label]) => (
+            <button
+              title={`Espace ${label}`}
+              className={mode === key ? 'active' : ''}
+              onClick={() => selectSpace(key)}
+              key={key}
+            >
+              <Icon />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
       <nav>
-        {nav.map(([X, s], n) => {
-          let Icon = X as typeof I.House;
-          let label = s as string;
+        {nav.map(([X, s]) => {
+          const Icon = X as typeof I.House;
+          const label = s as string;
           return (
             <button
               onClick={() => setTab(label)}
@@ -141,6 +143,7 @@ function Sidebar({
         })}
       </nav>
       <div className="sidefoot">
+<<<<<<< Updated upstream
         <button onClick={() => toast('Paramètres ouverts')}>
           <I.Settings />
           Paramètres
@@ -173,12 +176,19 @@ function Sidebar({
             <small>Consultez notre centre d’aide →</small>
           </div>
         )}
+=======
+        <div className="help">
+          <b>Nexora sécurisé</b>
+          <small>Données isolées par organisation</small>
+        </div>
+>>>>>>> Stashed changes
       </div>
     </aside>
   );
 }
 function Top({
   mode,
+<<<<<<< Updated upstream
   toast,
 }: {
   mode: Mode;
@@ -238,258 +248,40 @@ function Top({
         onClick={() => toast(`Menu du profil de ${profile[1]}`)}
       >
         <i>{profile[0]}</i>
-        <span>
-          <b>{profile[1]}</b>
-          <small>{profile[2]}</small>
-        </span>
-        <I.ChevronDown />
-      </button>
-    </header>
-  );
-}
-const tones = ['purple', 'green', 'blue', 'orange', 'purple'];
-function Stat({
-  Icon,
-  label,
-  value,
-  delta,
-  n = 0,
+=======
+  user,
 }: {
-  Icon: any;
-  label: string;
-  value: string;
-  delta: string;
-  n?: number;
+  mode: Mode;
+  user: ReturnType<typeof useCurrentUser>;
 }) {
+  const initials =
+    user?.name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'NX';
   return (
-    <div className="stat">
-      <i className={tones[n]}>
-        <Icon />
-      </i>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>↗ {delta} cette semaine</small>
+    <header className="top">
+      <I.Menu />
+      <span>
+        {mode === 'candidate'
+          ? 'Espace candidat'
+          : mode === 'recruiter'
+            ? 'Espace recruteur'
+            : 'Administration'}
+      </span>
+      <div className="user">
+        <i>{initials}</i>
+>>>>>>> Stashed changes
+        <span>
+          <b>{user?.name || 'Utilisateur Nexora'}</b>
+          <small>
+            {user?.organizationName} · {user?.role}
+          </small>
+        </span>
       </div>
-    </div>
-  );
-}
-function Head({ admin = false }: { admin?: boolean }) {
-  return (
-    <div className="head">
-      <div>
-        <h1>
-          {admin ? 'Tableau de bord administrateur' : 'Tableau de bord'} 👋
-        </h1>
-        <p>
-          {admin
-            ? 'Vue d’ensemble de votre activité recrutement'
-            : 'Bonjour Sophie, voici un aperçu de votre recherche d’emploi.'}
-        </p>
-      </div>
-      <div>
-        <button>
-          12 – 18 mai 2025 <I.ChevronDown />
-        </button>
-        <button className="primary">
-          <I.Plus />
-          {admin ? 'Nouvelle offre' : 'Nouvelle recherche'}
-        </button>
-      </div>
-    </div>
-  );
-}
-function Chart() {
-  return (
-    <div className="chart">
-      <svg viewBox="0 0 500 100" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="g" x2="0" y2="1">
-            <stop stopColor="#683cf3" stopOpacity=".25" />
-            <stop offset="1" stopColor="#683cf3" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M0 82L30 75 55 68 80 55 105 46 130 54 155 43 180 47 205 32 230 41 255 29 280 39 305 28 330 26 355 39 380 32 405 24 430 29 460 18 500 21V100H0Z"
-          fill="url(#g)"
-        />
-        <polyline
-          points="0,82 30,75 55,68 80,55 105,46 130,54 155,43 180,47 205,32 230,41 255,29 280,39 305,28 330,26 355,39 380,32 405,24 430,29 460,18 500,21"
-          fill="none"
-          stroke="#6338f5"
-          strokeWidth="2.5"
-        />
-      </svg>
-    </div>
-  );
-}
-function Candidate() {
-  let apps = [
-    ['Candidature envoyée', '6'],
-    ['En cours', '4'],
-    ['Entretien', '2'],
-    ['Offre', '1'],
-  ];
-  return (
-    <>
-      <Head />
-      <section className="nexora-brief">
-        <div className="ai-orb"><I.Sparkles /></div>
-        <div>
-          <small>NEXORA AI · BRIEF DU JOUR</small>
-          <h3>3 candidatures attendent une relance depuis plus de 7 jours.</h3>
-          <p>Je peux préparer des messages personnalisés pour ACME, Orange et Capgemini.</p>
-        </div>
-        <button data-ask="relances">Préparer les relances <I.ArrowRight /></button>
-      </section>
-      <section className="stats">
-        <Stat
-          Icon={I.Target}
-          label="Offres recommandées"
-          value="32"
-          delta="+8"
-        />
-        <Stat
-          Icon={I.Send}
-          label="Candidatures envoyées"
-          value="18"
-          delta="+5"
-          n={1}
-        />
-        <Stat
-          Icon={I.CalendarDays}
-          label="Entretiens"
-          value="4"
-          delta="+1"
-          n={2}
-        />
-        <Stat
-          Icon={I.RefreshCw}
-          label="Taux de réponse"
-          value="22%"
-          delta="+6%"
-          n={3}
-        />
-        <Stat
-          Icon={I.Target}
-          label="Score moyen de match"
-          value="84%"
-          delta="+5%"
-          n={4}
-        />
-      </section>
-      <section className="two">
-        <div className="panel jobs">
-          <Title
-            t="Matching IA"
-            sub="Offres les plus pertinentes pour vous"
-            link="Voir toutes les offres"
-          />
-          {jobs.map((j, n) => (
-            <div className="job" key={j[1]}>
-              <i className={'co c' + n}>{j[0]}</i>
-              <div>
-                <b>{j[1]}</b>
-                <small>{j[2]} · Lyon, France · Hybride</small>
-              </div>
-              <strong className={'score s' + n}>{j[3]}</strong>
-              <em>CDI</em>
-              <em className={n < 3 ? 'new' : ''}>
-                {n < 3 ? 'Nouveau' : '1 sem.'}
-              </em>
-              <I.Bookmark />
-            </div>
-          ))}
-        </div>
-        <div className="panel">
-          <Title t="Mes candidatures" link="Voir le Kanban" />
-          <div className="kanban">
-            {apps.map((a, n) => (
-              <div className={'col x' + n} key={a[0]}>
-                <header>
-                  <b>{a[0]}</b>
-                  <strong>{a[1]}</strong>
-                </header>
-                <p>
-                  ◈ ACME Corp<small>12 mai</small>
-                </p>
-                <p>
-                  ◆ GreenTech<small>10 mai</small>
-                </p>
-                <button>＋</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-      <section className="three">
-        <div className="panel analysis">
-          <Title t="Analyse de mon profil" />
-          <div>
-            <strong className="ring">
-              87%<small>Score global</small>
-            </strong>
-            <span>
-              <b>Compétences fortes</b>
-              <p className="good">SQL　Python　Power BI　Excel　Tableau</p>
-              <b>Compétences à développer</b>
-              <p className="warn">Data Modeling　BigQuery　AWS　Snowflake</p>
-            </span>
-          </div>
-          <a>Voir l’analyse complète →</a>
-        </div>
-        <Activity />
-        <div className="panel market">
-          <Title t="Tendances du marché" link="Voir le rapport complet" />
-          <small>Salaire moyen – Data Analyst (France)</small>
-          <h2>
-            46 000 € <small>/ an</small>
-          </h2>
-          <b className="pos">↑ 6 % vs période précédente</b>
-          <Chart />
-        </div>
-      </section>
-      <section className="automation-strip panel">
-        <Title t="Automatisations actives" link="Gérer les workflows" />
-        {[
-          ['Job Watcher', '32 offres analysées ce matin', true],
-          ['Relance automatique', '3 actions à valider', true],
-          ['Analyse CV', 'Dernière analyse : 84%', true],
-          ['LinkedIn Watcher', 'Connexion requise', false],
-        ].map((a) => <div key={a[0] as string}><i className={a[2] ? 'on' : ''} /><span><b>{a[0]}</b><small>{a[1]}</small></span><em>{a[2] ? 'Actif' : 'Pause'}</em></div>)}
-      </section>
-    </>
-  );
-}
-function Title({ t, sub, link }: { t: string; sub?: string; link?: string }) {
-  return (
-    <div className="title">
-      <b>
-        {t} {sub && <small>– {sub}</small>}
-      </b>
-      {link && <a>{link}</a>}
-    </div>
-  );
-}
-function Activity() {
-  return (
-    <div className="panel activity">
-      <Title t="Activité récente" />
-      {[
-        'Invitation à un entretien chez ACME Corp',
-        'Candidature envoyée à GreenTech',
-        'Nouveau match : Data Engineer chez TechFlow',
-        'Relance envoyée à DataVision',
-        'Votre CV a été consulté par ACME Corp',
-      ].map((x, n) => (
-        <p key={x}>
-          <i>▣</i>
-          {x}
-          <small>Il y a {n + 1} h</small>
-        </p>
-      ))}
-      <a>Voir toute l’activité</a>
-    </div>
+    </header>
   );
 }
 function CandidateCV() {
@@ -506,10 +298,14 @@ function CandidateCV() {
     [url],
   );
   async function importCV(files: FileList | null) {
-    let selected = files?.[0];
+    const selected = files?.[0];
     if (!selected) return;
     if (selected.type !== 'application/pdf') {
-      alert('Sélectionnez un fichier PDF.');
+      setError('Sélectionnez un fichier PDF.');
+      return;
+    }
+    if (selected.size > 5 * 1024 * 1024) {
+      setError('Le fichier doit faire au maximum 5 Mo.');
       return;
     }
     if (url) URL.revokeObjectURL(url);
@@ -518,21 +314,226 @@ function CandidateCV() {
     setLoading(true);
     setError('');
     try {
-      setParsed(await parseCV(selected));
-    } catch {
+      const body = new FormData();
+      body.append('file', selected);
+      const [cv, uploadResponse] = await Promise.all([
+        parseCV(selected),
+        fetch('/api/documents', { method: 'POST', body }),
+      ]);
+      const uploadResult = (await uploadResponse.json()) as {
+        document?: { id: string };
+        error?: { message?: string };
+      };
+      if (!uploadResponse.ok)
+        throw new Error(uploadResult.error?.message ?? 'Archivage impossible');
+      if (uploadResult.document?.id)
+        await fetch('/api/candidate/profile', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ primaryDocumentId: uploadResult.document.id }),
+        });
+      setParsed(cv);
+    } catch (cause) {
       setParsed(null);
-      setError('Le PDF s’affiche, mais son texte n’a pas pu être extrait.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Le CV n’a pas pu être analysé.',
+      );
     } finally {
       setLoading(false);
     }
+  }
+  function clear() {
+    if (url) URL.revokeObjectURL(url);
+    setFile(null);
+    setParsed(null);
+    setUrl('');
+    setError('');
   }
   return (
     <div className="cv-page">
       <div className="cv-head">
         <div>
           <h1>Mon CV</h1>
+          <p>Importez un PDF pour l’analyser et l’archiver dans Nexora.</p>
+        </div>
+        <div>
+          <input
+            ref={input}
+            hidden
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(event) => void importCV(event.target.files)}
+          />
+          <button data-live="true" onClick={() => input.current?.click()}>
+            <I.Upload /> Importer un CV
+          </button>
+          {url && (
+            <button data-live="true" onClick={() => window.open(url, '_blank')}>
+              <I.ExternalLink /> Ouvrir le PDF
+            </button>
+          )}
+          {file && <button onClick={clear}>Retirer l’aperçu</button>}
+        </div>
+      </div>
+      {loading && (
+        <div className="cv-import-status">
+          <I.LoaderCircle /> Analyse et archivage du CV…
+        </div>
+      )}
+      {error && <div className="cv-import-status error">{error}</div>}
+      {parsed && file ? (
+        <ImportedCVSummary cv={parsed} file={file} />
+      ) : file && url ? (
+        <section className="pdf-preview panel">
+          <header>
+            <div>
+              <i>PDF</i>
+              <span>
+                <b>{file.name}</b>
+                <small>{(file.size / 1024).toFixed(0)} Ko</small>
+              </span>
+            </div>
+          </header>
+          <iframe title={`Aperçu de ${file.name}`} src={url} />
+        </section>
+      ) : (
+        <section className="panel empty">
+          <I.FileUp />
+          <h2>Aucun CV importé</h2>
           <p>
-            Gérez, améliorez et partagez votre CV pour booster vos candidatures.
+            Nexora n’affiche plus de profil fictif. Importez votre propre CV
+            pour obtenir une vue structurée et le retrouver dans Documents.
+          </p>
+          <button
+            className="action primary"
+            onClick={() => input.current?.click()}
+          >
+            Choisir un PDF
+          </button>
+        </section>
+      )}
+    </div>
+  );
+}
+function CandidateATS() {
+  const input = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [cv, setCv] = useState<ParsedCV | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  async function analyze(files: FileList | null) {
+    const selected = files?.[0];
+    if (!selected) return;
+    if (selected.type !== 'application/pdf') {
+      setError('Sélectionnez un fichier PDF.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const parsed = await parseCV(selected);
+      const sectionKeys = new Set(
+        parsed.sections.map((section) => section.key),
+      );
+      const persistedChecks = [
+        {
+          label: 'Identité',
+          passed: Boolean(parsed.name),
+          detail: 'Nom détecté',
+        },
+        {
+          label: 'Titre professionnel',
+          passed: Boolean(parsed.title),
+          detail: 'Titre détecté',
+        },
+        {
+          label: 'Contact',
+          passed: Boolean(parsed.email || parsed.phone),
+          detail: 'E-mail ou téléphone',
+        },
+        {
+          label: 'Expérience',
+          passed: sectionKeys.has('experience'),
+          detail: 'Section structurée',
+        },
+        {
+          label: 'Formation',
+          passed: sectionKeys.has('education'),
+          detail: 'Section structurée',
+        },
+        {
+          label: 'Compétences',
+          passed: parsed.skills.length > 0,
+          detail: `${parsed.skills.length} détectée(s)`,
+        },
+      ];
+      const persistedScore = Math.round(
+        (persistedChecks.filter((check) => check.passed).length /
+          persistedChecks.length) *
+          100,
+      );
+      const body = new FormData();
+      body.append('file', selected);
+      const uploadResponse = await fetch('/api/documents', {
+        method: 'POST',
+        body,
+      });
+      const upload = (await uploadResponse.json()) as {
+        document?: { id: string };
+        error?: { message?: string };
+      };
+      if (!uploadResponse.ok)
+        throw new Error(upload.error?.message ?? 'Archivage impossible');
+      await fetch('/api/candidate/profile/ats-analyses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          documentId: upload.document?.id,
+          score: persistedScore,
+          detectedKeywords: parsed.skills,
+          checks: persistedChecks,
+        }),
+      });
+      setCv(parsed);
+      setFile(selected);
+    } catch {
+      setCv(null);
+      setFile(selected);
+      setError('Le texte de ce PDF n’a pas pu être extrait.');
+    } finally {
+      setLoading(false);
+    }
+  }
+  const sectionKeys = new Set(cv?.sections.map((section) => section.key) ?? []);
+  const checks = cv
+    ? [
+        ['Identité', Boolean(cv.name), 'Nom détecté'],
+        ['Titre professionnel', Boolean(cv.title), 'Titre détecté'],
+        ['Contact', Boolean(cv.email || cv.phone), 'E-mail ou téléphone'],
+        ['Expérience', sectionKeys.has('experience'), 'Section structurée'],
+        ['Formation', sectionKeys.has('education'), 'Section structurée'],
+        [
+          'Compétences',
+          cv.skills.length > 0,
+          `${cv.skills.length} détectée(s)`,
+        ],
+      ]
+    : [];
+  const score = checks.length
+    ? Math.round(
+        (checks.filter(([, passed]) => passed).length / checks.length) * 100,
+      )
+    : 0;
+  return (
+    <div className="ats-page">
+      <div className="cv-head ats-head">
+        <div>
+          <h1>Analyse ATS du CV</h1>
+          <p>
+            Analyse locale de la structure et des mots-clés réellement extraits
+            du PDF.
           </p>
         </div>
         <div>
@@ -541,467 +542,76 @@ function CandidateCV() {
             hidden
             type="file"
             accept="application/pdf,.pdf"
-            onChange={(e) => importCV(e.target.files)}
+            onChange={(event) => void analyze(event.target.files)}
           />
-          <button data-live="true" onClick={() => input.current?.click()}>
-            <I.Upload />
-            Importer un CV
-          </button>
-          <button data-live="true" onClick={() => window.print()}>
-            <I.Download />
-            Télécharger PDF
-          </button>
-          <button className="primary">
-            <I.Plus />
-            Créer une nouvelle version
+          <button className="primary" onClick={() => input.current?.click()}>
+            <I.Upload /> Analyser un PDF
           </button>
         </div>
       </div>
-      {file && url && !parsed && (
-        <section className="pdf-preview panel">
-          <header>
-            <div>
-              <i>PDF</i>
-              <span>
-                <b>{file.name}</b>
-                <small>
-                  {(file.size / 1024).toFixed(0)} Ko · Importé maintenant
-                </small>
-              </span>
-            </div>
-            <div>
-              <button onClick={() => window.open(url, '_blank')}>
-                <I.ExternalLink />
-                Ouvrir
-              </button>
-              <button
-                onClick={() => {
-                  setFile(null);
-                  setParsed(null);
-                  URL.revokeObjectURL(url);
-                  setUrl('');
-                }}
-              >
-                Fermer ×
-              </button>
-            </div>
-          </header>
-          <iframe title={`Aperçu de ${file.name}`} src={url} />
-        </section>
-      )}
       {loading && (
         <div className="cv-import-status">
-          <I.LoaderCircle /> Analyse et structuration du CV…
+          <I.LoaderCircle /> Extraction du contenu…
         </div>
       )}
       {error && <div className="cv-import-status error">{error}</div>}
-      {parsed && file && <ImportedCVSummary cv={parsed} file={file} />}
-      <div className={`cv-layout ${parsed ? 'demo-hidden' : ''}`}>
-        <aside className="cv-left">
-          <section className="panel profile-card">
-            <div className="portrait">
-              SM<span>✎</span>
-            </div>
-            <div>
-              <h3>Sophie Martin</h3>
-              <b>Product Manager</b>
-              <small>
-                <I.MapPin /> Lyon, France
-              </small>
-            </div>
-            <hr />
-            <p>
-              <I.BriefcaseBusiness />
-              <span>
-                Poste recherché<b>Product Manager</b>
-              </span>
-            </p>
-            <p>
-              <I.MapPin />
-              <span>
-                Localisation
-                <b>
-                  Lyon, France
-                  <br />
-                  Télétravail partiel
-                </b>
-              </span>
-            </p>
-            <p>
-              <I.Clock3 />
-              <span>
-                Disponibilité<b>Immédiate</b>
-              </span>
-            </p>
-            <p>
-              <I.WalletCards />
-              <span>
-                Salaire souhaité<b>45k – 55k € brut/an</b>
-              </span>
-            </p>
-            <hr />
-            <p>
-              <I.Link />
-              <span>
-                Portfolio<b className="link">sophiemartin.design</b>
-              </span>
-            </p>
-            <p>
-              <I.Link />
-              <span>
-                LinkedIn<b className="link">linkedin.com/in/sophie-martin</b>
-              </span>
-            </p>
-          </section>
-          <section className="panel keyword-card">
-            <Title t="Mots-clés principaux" link="Modifier" />
-            <div>
-              {[
-                'Product Management',
-                'Roadmap',
-                'Agile',
-                'Data-driven',
-                'User Research',
-                'KPI',
-                'SQL',
-                'Dashboard',
-                'A/B Testing',
-                'Stakeholders',
-              ].map((x) => (
-                <span key={x}>{x}</span>
-              ))}
-            </div>
-          </section>
-          <section className="panel current-file">
-            <b>Fichier actuel</b>
-            <p>
-              <i>PDF</i>
-              <span>
-                <b>{file?.name || 'CV_Sophie_Martin_v3.pdf'}</b>
-                <small>
-                  {file ? 'Importé maintenant' : 'Mis à jour le 12 mai 2025'}
-                  <br />
-                  {file ? `${(file.size / 1024).toFixed(0)} Ko` : '356 Ko'}
-                </small>
-              </span>
-            </p>
-          </section>
-        </aside>
-        <article className="cv-paper">
-          <header>
-            <h2>Sophie Martin</h2>
-            <h3>Product Manager</h3>
-            <p>
-              ✉ sophie.martin@email.com　 ·　 ☎ +33 6 12 34 56 78　 ·　 ⌖ Lyon,
-              France
-            </p>
-            <p>in linkedin.com/in/sophie-martin　 ·　 ✉ sophiemartin.design</p>
-          </header>
-          <div className="cv-columns">
-            <div className="cv-main">
-              <CVSection title="PROFIL">
-                <p>
-                  Product Manager orientée impact, avec 5 ans d’expérience dans
-                  la conception et le lancement de produits digitaux centrés
-                  utilisateur. J’accompagne les équipes dans la définition de
-                  stratégies produit data-driven pour créer de la valeur et
-                  atteindre les objectifs business.
-                </p>
-              </CVSection>
-              <CVSection title="EXPÉRIENCES">
-                <Experience
-                  role="Product Manager"
-                  company="ACME Corp"
-                  date="Janv. 2022 – Aujourd’hui"
-                />
-                <Experience
-                  role="Product Owner"
-                  company="GreenTech"
-                  date="Juin 2020 – Déc. 2021"
-                />
-                <Experience
-                  role="Assistante Cheffe de Produit"
-                  company="InnovData"
-                  date="Sept. 2018 – Mai 2020"
-                />
-              </CVSection>
-              <CVSection title="FORMATION">
-                <Experience
-                  role="Master 2 – Marketing & Management de l’Innovation"
-                  company="Université Jean Moulin Lyon 3"
-                  date="2016 – 2018"
-                />
-                <Experience
-                  role="Licence Économie & Gestion"
-                  company="Université Jean Moulin Lyon 3"
-                  date="2013 – 2016"
-                />
-              </CVSection>
-            </div>
-            <aside className="cv-side">
-              <CVSection title="COMPÉTENCES">
-                <ul>
-                  {[
-                    'Gestion de produit',
-                    'Roadmap & Priorisation',
-                    'Analyse de données',
-                    'SQL & Excel avancé',
-                    'A/B Testing',
-                    'Agile (Scrum)',
-                    'Notion, Jira, Confluence',
-                    'Product Analytics',
-                    'User Research',
-                  ].map((x) => (
-                    <li key={x}>{x}</li>
-                  ))}
-                </ul>
-              </CVSection>
-              <CVSection title="PROJETS">
-                <b>Refonte Onboarding Utilisateur</b>
-                <p>
-                  Refonte complète du parcours d’onboarding, +22% d’activation
-                  utilisateur en 3 mois.
-                </p>
-                <b>Dashboard Produit</b>
-                <p>
-                  Création d’un dashboard centralisé pour suivre les KPI
-                  produits.
-                </p>
-              </CVSection>
-              <CVSection title="LANGUES">
-                <b>Français</b>
-                <p>Langue maternelle</p>
-                <b>Anglais</b>
-                <p>Courant (C1)</p>
-                <b>Espagnol</b>
-                <p>Intermédiaire (B1)</p>
-              </CVSection>
-            </aside>
-          </div>
-        </article>
-        <aside className="cv-right">
-          <section className="panel completeness">
-            <Title t="Score de complétude" />
-            <div>
-              <strong>92%</strong>
-              <span>
-                <b>Excellent !</b>
-                <p>
-                  Votre CV est très complet.
-                  <br />
-                  Continuez ainsi.
-                </p>
-                <a>Voir le détail →</a>
-              </span>
-            </div>
-          </section>
-          <section className="panel suggestions">
-            <Title t="Suggestions IA" link="Nouveau" />
-            {[
-              [
-                '✦',
-                'Ajoutez des résultats chiffrés à vos expériences',
-                '+8% d’impact potentiel',
-              ],
-              [
-                '▣',
-                'Développez votre section “Projets”',
-                '+6% d’impact potentiel',
-              ],
-              [
-                '□',
-                'Mentionnez vos outils clés en compétences',
-                '+4% d’impact potentiel',
-              ],
-            ].map((x) => (
-              <p key={x[1]}>
-                <i>{x[0]}</i>
-                <span>
-                  <b>{x[1]}</b>
-                  <small>{x[2]}</small>
-                </span>
-              </p>
-            ))}
-            <a>Voir toutes les suggestions →</a>
-          </section>
-          <section className="panel versions">
-            <Title t="Versions du CV" link="Voir toutes" />
-            {[
-              ['v3 (actuelle)', '12 mai 2025'],
-              ['v2', '28 avr. 2025'],
-              ['v1', '10 mars 2025'],
-            ].map((x) => (
-              <p key={x[0]}>
-                <b>{x[0]}</b>
-                <small>{x[1]}　 Sophie Martin</small>
-                <i>⋮</i>
-              </p>
-            ))}
-          </section>
-          <section className="panel quick">
-            <Title t="Actions rapides" />
-            <button>
-              <I.Target />
-              <span>
-                <b>Optimiser pour une offre</b>
-                <small>Adaptez votre CV à une offre spécifique</small>
-              </span>
-              ›
-            </button>
-            <button>
-              <I.Share2 />
-              <span>
-                <b>Partager mon CV</b>
-                <small>Générez un lien partageable</small>
-              </span>
-              ›
-            </button>
-          </section>
-        </aside>
-      </div>
-    </div>
-  );
-}
-function CandidateATS() {
-  let criteria = [
-    ['Format', '92%', 'Excellent', 'green'],
-    ['Lisibilité', '78%', 'Bon', 'blue'],
-    ['Mots-clés', '76%', 'Bon', 'orange'],
-    ['Structure', '88%', 'Très bon', 'purple'],
-    ['Pertinence', '81%', 'Très bon', 'green'],
-  ];
-  let found = [
-    'SQL',
-    'Python',
-    'Tableau',
-    'Power BI',
-    'Excel',
-    'BigQuery',
-    'Google Analytics',
-    'ETL',
-    'Looker',
-    'Data Visualisation',
-    'A/B Testing',
-    'KPI',
-    'Dashboards',
-    'Reporting',
-    '+14',
-  ];
-  let missing = [
-    'Snowflake',
-    'dbt',
-    'Airflow',
-    'Azure Synapse',
-    'Machine Learning',
-    'Data Governance',
-    'Storytelling',
-    'Agile',
-  ];
-  return (
-    <div className="ats-page">
-      <div className="cv-head ats-head">
-        <div>
-          <h1>Analyse ATS de mon CV</h1>
+      {!cv ? (
+        <section className="panel empty">
+          <I.Target />
+          <h2>Aucune analyse disponible</h2>
           <p>
-            Voici l’analyse de votre CV{' '}
-            <b>“Sophie Martin - Data Analyst.pdf”</b>
+            Importez votre CV : aucun score, mot-clé ou conseil fictif ne sera
+            affiché.
           </p>
-        </div>
-        <div>
-          <button>
-            <I.Download />
-            Télécharger le rapport
-          </button>
-          <button className="primary">
-            <I.Sparkles />
-            Optimiser mon CV
-          </button>
-        </div>
-      </div>
-      <div className="ats-layout">
-        <div className="ats-main">
-          <section className="panel ats-overview">
-            <Title t="Score ATS global" />
-            <div className="ats-overview-body">
-              <div className="ats-gauge">
-                <strong>82%</strong>
-                <b>Très bon</b>
-                <small>⌃ +12%　vs analyse précédente</small>
-                <p>
-                  ⓘ Votre CV a de fortes chances de passer les filtres ATS et
-                  d’attirer l’attention des recruteurs.
-                </p>
+        </section>
+      ) : (
+        <div className="ats-layout">
+          <div className="ats-main">
+            <section className="panel ats-overview">
+              <div className="title">
+                <b>Score de structure</b>
               </div>
-              <div className="criteria">
-                {criteria.map((c, n) => (
-                  <div className="criterion" key={c[0]}>
-                    <i className={c[3]}>
-                      {
-                        [
-                          <I.ClipboardCheck key="a" />,
-                          <I.ListChecks key="b" />,
-                          <I.KeyRound key="c" />,
-                          <I.LayoutGrid key="d" />,
-                          <I.Target key="e" />,
-                        ][n]
-                      }
-                    </i>
-                    <b>{c[0]}</b>
-                    <span>
-                      <em className={c[3]} style={{ width: c[1] }} />
-                    </span>
-                    <strong>{c[1]}</strong>
-                    <small>{c[2]}</small>
-                  </div>
-                ))}
+              <div className="ats-overview-body">
+                <div className="ats-gauge">
+                  <strong>{score}%</strong>
+                  <b>{score >= 80 ? 'Structure complète' : 'À compléter'}</b>
+                  <p>
+                    Ce score mesure uniquement les sections détectées. Il ne
+                    prédit pas une décision de recrutement.
+                  </p>
+                </div>
+                <div className="criteria">
+                  {checks.map(([label, passed, detail]) => (
+                    <div className="criterion" key={String(label)}>
+                      <i className={passed ? 'green' : 'orange'}>
+                        {passed ? <I.Check /> : <I.AlertTriangle />}
+                      </i>
+                      <b>{label}</b>
+                      <strong>{passed ? 'OK' : 'Manquant'}</strong>
+                      <small>{detail}</small>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </section>
-          <div className="ats-pairs">
+            </section>
             <section className="panel ats-keywords good-box">
-              <Title t="✓ Mots-clés détectés" link="28" />
+              <div className="title">
+                <b>Mots-clés détectés</b>
+                <small>{cv.skills.length}</small>
+              </div>
               <div>
-                {found.map((x) => (
-                  <span key={x}>{x}</span>
+                {cv.skills.map((skill) => (
+                  <span key={skill}>{skill}</span>
                 ))}
+                {!cv.skills.length && <p>Aucun mot-clé reconnu.</p>}
               </div>
             </section>
-            <section className="panel ats-keywords missing-box">
-              <Title t="⚠ Mots-clés manquants" link="8" />
-              <div>
-                {missing.map((x) => (
-                  <span key={x}>{x}</span>
-                ))}
-              </div>
-            </section>
-            <section className="panel ats-list">
-              <Title t="✓ Points forts" />
-              <ul>
-                {[
-                  'Format de CV moderne et bien structuré',
-                  'Excellente utilisation des mots-clés techniques',
-                  'Expérience quantifiée avec des résultats concrets',
-                  'Parcours cohérent et lisible',
-                  'Bon équilibre entre hard skills et soft skills',
-                ].map((x) => (
-                  <li key={x}>✓　{x}</li>
-                ))}
-              </ul>
-              <I.ThumbsUp />
-            </section>
-            <section className="panel ats-list recommendations">
-              <Title t="⚠ Recommandations prioritaires" />
-              <ol>
-                <li>
-                  Ajouter des compétences manquantes importantes (Snowflake,
-                  dbt)
-                </li>
-                <li>Renforcer la section outils & technologies</li>
-                <li>Inclure plus de résultats chiffrés et d’impact business</li>
-              </ol>
-              <a>Voir toutes les recommandations　→</a>
-            </section>
+            <footer className="ats-foot">
+              Fichier analysé : {file?.name}. Vérifiez le résultat avant de
+              modifier votre CV.
+            </footer>
           </div>
+<<<<<<< Updated upstream
           <footer className="ats-foot">
             ♢　Analyse basée sur les meilleures pratiques ATS et les données du
             marché.<span>Dernière analyse : 18 mai 2025 à 10:24</span>
@@ -1383,55 +993,23 @@ function AdminDashboard() {
                 <small>{people[n + 6]} – Data Engineer</small>
               </span>
               <small>Il y a {n + 1}h</small>
+=======
+          <aside className="panel ats-compare">
+            <h3>Comparer à une offre</h3>
+            <p>
+              Utilisez le module Matching avec un fournisseur d’offres
+              configuré. Nexora ne déduit pas de compétences manquantes sans
+              offre source.
+>>>>>>> Stashed changes
             </p>
-          ))}
+          </aside>
         </div>
-        <div className="panel candidates">
-          <Title t="Top candidats" link="Voir tous les candidats →" />
-          {people.slice(9, 14).map((p, n) => (
-            <p key={p}>
-              <i>{n + 1}</i>
-              <b className="avatar">
-                {p
-                  .split(' ')
-                  .map((x) => x[0])
-                  .join('')}
-              </b>
-              <span>
-                <b>{p}</b>
-                <small>Data Scientist – ACME Corp</small>
-              </span>
-              <strong>{92 - n * 4}%</strong>
-            </p>
-          ))}
-        </div>
-        <div className="panel recruit">
-          <Title
-            t="Analyse des recrutements"
-            link="Voir le rapport complet →"
-          />
-          <div>
-            {[
-              ['Candidats entrants', '342'],
-              ['Entretiens réalisés', '78'],
-              ['Offres acceptées', '14'],
-              ['Recrutements', '9'],
-            ].map((x) => (
-              <span key={x[0]}>
-                {x[0]}
-                <b>
-                  {x[1]} <i>+18%</i>
-                </b>
-              </span>
-            ))}
-          </div>
-          <Chart />
-        </div>
-      </section>
-    </>
+      )}
+    </div>
   );
 }
 
+<<<<<<< Updated upstream
 function AdminConsole({tab,toast}:{tab:string;toast:(x:string)=>void}) {
   if(tab==='Tableau de bord') return <div><header className="admin-hero"><div><small>NEXORA CONTROL CENTER</small><h1>Bonjour Marc, tout fonctionne normalement.</h1><p>Vue temps réel de la plateforme, des organisations et des opérations IA.</p></div><span><i/>Tous les systèmes opérationnels</span></header><section className="admin-kpis"><div><I.Users/><span><small>UTILISATEURS ACTIFS</small><b>2 847</b><em>+12,4%</em></span></div><div><I.Building2/><span><small>ORGANISATIONS</small><b>186</b><em>+18</em></span></div><div><I.CreditCard/><span><small>MRR</small><b>48 620 €</b><em>+8,7%</em></span></div><div><I.Bot/><span><small>ACTIONS IA</small><b>18 429</b><em>99,2%</em></span></div></section><section className="admin-grid"><div className="panel platform-growth"><Title t="Croissance de la plateforme" link="12 derniers mois"/><div className="growth-chart">{[32,38,35,47,52,61,58,72,78,82,91,96].map((x,n)=><i key={n} style={{height:`${x}%`}}><span>{n===11?'2 847':''}</span></i>)}</div><footer><span><i className="purple"/>Utilisateurs</span><span><i className="cyan"/>Organisations</span></footer></div><div className="panel system-health"><Title t="Santé des services" link="Status page"/>{[['API principale','99,99%','24 ms'],['Nexora AI','99,92%','840 ms'],['Automations','99,97%','128 ms'],['Emails','99,88%','1,2 s']].map((x,n)=><p key={x[0]}><i className={n===3?'warn':''}/><span><b>{x[0]}</b><small>Opérationnel</small></span><strong>{x[1]}</strong><em>{x[2]}</em></p>)}</div><div className="panel admin-activity"><Title t="Activité plateforme" link="Journal complet"/>{[['Nouvelle organisation','DataNova a rejoint Nexora'],['Upgrade abonnement','ACME passe au plan Business'],['Pic d’usage IA','2 400 analyses en 1 heure'],['Nouveau membre','48 utilisateurs invités']].map((x,n)=><p key={x[0]}><i>{[<I.Building2 key="a"/>,<I.CreditCard key="b"/>,<I.Bot key="c"/>,<I.UserPlus key="d"/>][n]}</i><span><b>{x[0]}</b><small>{x[1]}</small></span><time>{n+1}h</time></p>)}</div></section></div>;
   const configs:Record<string,{eyebrow:string;title:string;subtitle:string;items:string[][]}> = {
@@ -1527,11 +1105,20 @@ export default function Home() {
   let [assistant, setAssistant] = useState(false);
   const consumed = useRef(false);
   const mainRef = useRef<HTMLElement>(null);
+=======
+export default function Home() {
+  const currentUser = useCurrentUser();
+  const [mode, setMode] = useState<Mode>('candidate');
+  const [tab, setTab] = useState<string>('Tableau de bord');
+  const [notice, setNotice] = useState('');
+  const [assistant, setAssistant] = useState(false);
+>>>>>>> Stashed changes
   function toast(x: string) {
     consumed.current = true;
     setNotice(x);
     window.setTimeout(() => setNotice(''), 2600);
   }
+<<<<<<< Updated upstream
   // Filet de sécurité : garantit qu'aucun bouton/lien ne reste sans réaction.
   // S'exécute après les handlers explicites (phase bubble) et ne déclenche un
   // retour que si rien d'autre ne s'est produit (ni toast, ni changement d'écran).
@@ -1605,26 +1192,54 @@ export default function Home() {
   }
   let candidatePage =
     tab === 'Mon CV' ? (
+=======
+  const candidatePage =
+    tab === 'Sécurité' ? (
+      <SecurityPage toast={toast} />
+    ) : tab === 'Mon profil' ? (
+      <CandidateProfilePage toast={toast} />
+    ) : tab === 'Mon CV' ? (
+>>>>>>> Stashed changes
       <CandidateCV />
     ) : tab === 'Analyse ATS' ? (
       <CandidateATS />
     ) : tab === "Offres d'emploi" ? (
-      <JobsPage toast={toast} onApplied={applied} />
+      <JobsPage toast={toast} />
     ) : tab === 'Matching IA' ? (
-      <MatchingPage toast={toast} onApplied={applied} />
+      <MatchingPage toast={toast} />
     ) : tab === 'Mes candidatures' ? (
-      <ApplicationsPage toast={toast} external={external} />
+      <ApplicationsPage toast={toast} />
     ) : tab === 'Relances' ? (
       <FollowupsPage toast={toast} />
     ) : tab === 'Documents' ? (
       <DocumentsPage toast={toast} />
     ) : tab === 'Automatisations' ? (
-      <AutomationsPage toast={toast} />
+      <LiveAutomationsPage toast={toast} />
     ) : (
-      <Candidate />
+      <LiveDashboard
+        mode="candidate"
+        user={currentUser}
+        openApplications={() => setTab('Mes candidatures')}
+      />
     );
-  let recruiterPage = tab === 'CRM' ? <CRMPage toast={toast}/> : tab === 'Automatisations' ? <AutomationsPage toast={toast}/> : tab === 'Tableau de bord' ? <RecruiterDashboard setTab={setTab}/> : <RecruiterModule tab={tab} toast={toast}/>;
+  const recruiterPage =
+    tab === 'Sécurité' ? (
+      <SecurityPage toast={toast} />
+    ) : tab === 'CRM' ? (
+      <LiveCRMPage toast={toast} />
+    ) : tab === 'Automatisations' ? (
+      <LiveAutomationsPage toast={toast} />
+    ) : tab === 'Tableau de bord' ? (
+      <LiveDashboard
+        mode="recruiter"
+        user={currentUser}
+        openApplications={() => setTab('CRM')}
+      />
+    ) : (
+      <LiveRecruiterPage tab={tab} toast={toast} />
+    );
   return (
+<<<<<<< Updated upstream
     // Conteneur de délégation (non interactif en soi) : voir ensureFeedback.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
     <div
@@ -1637,15 +1252,41 @@ export default function Home() {
       <Top mode={mode} toast={toast} />
       <main ref={mainRef} onClickCapture={legacyAction}>
         {mode === 'candidate' ? candidatePage : mode === 'recruiter' ? recruiterPage : <AdminConsole tab={tab} toast={toast}/>}
+=======
+    <div>
+      <Sidebar
+        mode={mode}
+        setMode={setMode}
+        tab={tab}
+        setTab={setTab}
+        role={currentUser?.role ?? 'CANDIDATE'}
+      />
+      <Top mode={mode} user={currentUser} />
+      <main>
+        {mode === 'candidate' ? (
+          candidatePage
+        ) : mode === 'recruiter' ? (
+          recruiterPage
+        ) : tab === 'Équipe' ? (
+          <TeamPage toast={toast} />
+        ) : tab === 'Sécurité' ? (
+          <SecurityPage toast={toast} />
+        ) : (
+          <LiveAdminPage tab={tab} />
+        )}
+>>>>>>> Stashed changes
       </main>
       <Toast message={notice} />
-      <button
-        className="ask-float"
-        onClick={() => setAssistant(true)}
-      >
-        <I.Sparkles/> Ask Nexora
+      <button className="ask-float" onClick={() => setAssistant(true)}>
+        <I.Sparkles /> Ask Nexora
       </button>
+<<<<<<< Updated upstream
       {assistant&&<NexoraAssistant mode={mode} onClose={()=>setAssistant(false)} toast={toast}/>}
+=======
+      {assistant && (
+        <NexoraAssistantPanel mode={mode} onClose={() => setAssistant(false)} />
+      )}
+>>>>>>> Stashed changes
     </div>
   );
 }

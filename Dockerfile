@@ -12,6 +12,24 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build:vercel
 
+FROM node:22-alpine AS worker
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package.json tsconfig.json ./
+COPY lib ./lib
+COPY scripts ./scripts
+CMD ["./node_modules/.bin/tsx", "scripts/worker.ts"]
+
+FROM node:22-alpine AS migrator
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package.json tsconfig.json ./
+COPY scripts/migrate.ts ./scripts/migrate.ts
+COPY migrations ./migrations
+CMD ["./node_modules/.bin/tsx", "scripts/migrate.ts"]
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 
