@@ -8,10 +8,13 @@ import {
   JobsPage,
   MatchingPage,
   Toast,
+  seedApps,
   useStored,
   type AppliedOffer,
+  type Application,
 } from './candidate-pages';
 import { ImportedCVSummary, parseCV, type ParsedCV } from './cv-import';
+import { initialOffers, STATUS_LABEL, type StoredOffer } from '@/lib/offers';
 import {
   ACTIONS_CATALOG,
   AutomationBuilder,
@@ -1444,22 +1447,77 @@ function AdminConsole({tab,toast}:{tab:string;toast:(x:string)=>void}) {
   return <div><ModuleHero eyebrow={view.eyebrow} title={view.title} subtitle={view.subtitle} action="Exporter" Icon={I.Download} onAction={()=>toast(`Export de « ${view.title} » lancé`)}/><section className="panel admin-table"><header><label><I.Search/><input placeholder={`Rechercher dans ${tab.toLowerCase()}...`}/></label><button onClick={()=>toast('Filtres appliqués')}><I.Filter/>Filtrer</button><button className="action primary" onClick={()=>toast('Nouvel élément créé')}><I.Plus/>Ajouter</button></header>{view.items.map((x,n)=><article key={x[0]}><i>{x[0].slice(0,2).toUpperCase()}</i><span><b>{x[0]}</b><small>ID NX-{2400+n}</small></span><strong>{x[1]}</strong><em>{x[2]}</em><small>{x[3]}</small><button onClick={()=>toast(`${x[0]} ouvert`)}><I.MoreHorizontal/></button></article>)}</section></div>;
 }
 
+// Résumé compact et RÉEL (pas de chiffres inventés) des données
+// actuellement enregistrées, envoyé comme contexte à l'assistant. Reste
+// volontairement court pour limiter le coût/latence de l'appel Gemini.
+function buildAssistantContext(mode: Mode, offers: StoredOffer[], apps: Application[], flows: AutomationFlow[]): string {
+  const activeOffers = offers.filter((o) => o.status === 'active' || o.status === 'expiring_soon');
+  const topOffers = [...activeOffers]
+    .sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+    .slice(0, 5)
+    .map((o) => `${o.title} chez ${o.company} (${o.location}, ${STATUS_LABEL[o.status]})`);
+  const appsByStage = apps.reduce<Record<string, number>>((acc, a) => {
+    acc[a.stage] = (acc[a.stage] || 0) + 1;
+    return acc;
+  }, {});
+  const activeFlows = flows.filter((f) => f.status === 'active');
+  const lines = [
+    `Offres enregistrées : ${offers.length} au total (${activeOffers.length} actives ou bientôt expirées).`,
+    topOffers.length ? `Offres récentes : ${topOffers.join(' ; ')}.` : '',
+    `Candidatures (${apps.length}) par statut : ${Object.entries(appsByStage).map(([s, n]) => `${s}: ${n}`).join(', ') || 'aucune'}.`,
+    `Automatisations actives : ${activeFlows.length}/${flows.length} (${activeFlows.map((f) => f.name).join(', ') || 'aucune'}).`,
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
 function NexoraAssistant({mode,onClose,toast}:{mode:Mode;onClose:()=>void;toast:(x:string)=>void}) {
   const [query,setQuery] = useState('');
   const [answer,setAnswer] = useState('');
+  const [loading,setLoading] = useState(false);
+  const [source,setSource] = useState<'gemini'|'demo'|null>(null);
+  const [offers] = useStored<StoredOffer[]>('jobpilot_offers_v3', initialOffers);
+  const [apps] = useStored<Application[]>('jobpilot_apps', seedApps);
+  const [flows] = useStored<AutomationFlow[]>('nexora_automation_flows_v2', seedFlows);
   const suggestions = mode === 'candidate'
     ? ['Quelles candidatures dois-je relancer ?', 'Pourquoi je n’obtiens pas plus d’entretiens ?', 'Trouve mes meilleures offres cette semaine']
     : ['Quels candidats dois-je contacter ?', 'Quels clients faut-il relancer ?', 'Résume mon pipeline de recrutement'];
-  function ask(text=query){
-    setQuery(text);
+  // Repli hors-ligne (utilisé uniquement si la clé Gemini n'est pas
+  // configurée ou si l'appel échoue) : réponses de démonstration, jamais
+  // présentées comme provenant d'un vrai modèle.
+  function demoAnswer(text:string){
     const q=text.toLowerCase();
-    if(q.includes('relanc')) setAnswer('J’ai trouvé 4 candidatures sans réponse : ACME (9 jours), Orange (12 jours), Capgemini (8 jours) et Sopra Steria (14 jours). Je peux préparer les 4 relances personnalisées.');
-    else if(q.includes('entretien')) setAnswer('Sur 41 candidatures, 63 % demandent AWS alors que cette compétence est absente du CV. Les offres Data Analyst ont néanmoins un taux de réponse 2,1× supérieur. Je recommande de renforcer AWS et de concentrer les prochaines candidatures sur ce rôle.');
-    else if(q.includes('client')) setAnswer('GreenTech et Sopra Steria sont à relancer aujourd’hui. GreenTech a consulté la shortlist il y a 5 jours ; Sopra Steria n’a pas répondu depuis 9 jours.');
-    else if(q.includes('candidat')) setAnswer('4 profils dépassent 85 % de matching. Sophie Martin (92 %) et Thomas Bernard (89 %) sont disponibles immédiatement. Je peux préparer les messages de prise de contact.');
-    else setAnswer('J’ai croisé les données CRM, les candidatures, le matching et les tâches. Votre priorité est de traiter 3 relances et 2 profils à fort potentiel aujourd’hui.');
+    if(q.includes('relanc')) return 'J’ai trouvé 4 candidatures sans réponse : ACME (9 jours), Orange (12 jours), Capgemini (8 jours) et Sopra Steria (14 jours). Je peux préparer les 4 relances personnalisées.';
+    if(q.includes('entretien')) return 'Sur 41 candidatures, 63 % demandent AWS alors que cette compétence est absente du CV. Les offres Data Analyst ont néanmoins un taux de réponse 2,1× supérieur. Je recommande de renforcer AWS et de concentrer les prochaines candidatures sur ce rôle.';
+    if(q.includes('client')) return 'GreenTech et Sopra Steria sont à relancer aujourd’hui. GreenTech a consulté la shortlist il y a 5 jours ; Sopra Steria n’a pas répondu depuis 9 jours.';
+    if(q.includes('candidat')) return '4 profils dépassent 85 % de matching. Sophie Martin (92 %) et Thomas Bernard (89 %) sont disponibles immédiatement. Je peux préparer les messages de prise de contact.';
+    return 'J’ai croisé les données CRM, les candidatures, le matching et les tâches. Votre priorité est de traiter 3 relances et 2 profils à fort potentiel aujourd’hui.';
   }
-  return <div className="assistant-backdrop" onClick={onClose}><aside className="assistant" onClick={e=>e.stopPropagation()}><header><div className="ai-orb"><I.Sparkles/></div><span><b>Ask Nexora</b><small>Assistant connecté à vos données</small></span><button onClick={onClose}><I.X/></button></header><div className="assistant-body"><div className="assistant-welcome"><I.Bot/><h2>Comment puis-je vous aider ?</h2><p>Je peux analyser vos offres, candidatures, clients et workflows pour vous proposer la prochaine meilleure action.</p></div>{!answer&&<div className="suggestions">{suggestions.map(x=><button key={x} onClick={()=>ask(x)}>{x}<I.ArrowUpRight/></button>)}</div>}{answer&&<div className="ai-answer"><small>ANALYSE NEXORA</small><p>{answer}</p><div><button onClick={()=>toast('Éléments liés affichés')}>Voir les éléments</button><button className="primary" onClick={()=>{toast('Actions préparées par Nexora');onClose()}}>Préparer les actions</button></div></div>}</div><footer><div><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&ask()} placeholder="Demandez quelque chose à Nexora…"/><button onClick={()=>ask()}><I.ArrowUp/></button></div><small>Nexora peut faire des erreurs. Vérifiez les actions importantes.</small></footer></aside></div>
+  async function ask(text=query){
+    setQuery(text);
+    setLoading(true);
+    try{
+      const context = buildAssistantContext(mode, offers, apps, flows);
+      const res = await fetch('/api/assistant', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ message:text, mode, context }),
+      });
+      const data = await res.json().catch(()=>null) as {text?:string} | null;
+      if(res.ok && data?.text){
+        setAnswer(data.text);
+        setSource('gemini');
+      } else {
+        setAnswer(demoAnswer(text));
+        setSource('demo');
+      }
+    } catch {
+      setAnswer(demoAnswer(text));
+      setSource('demo');
+    } finally {
+      setLoading(false);
+    }
+  }
+  return <div className="assistant-backdrop" onClick={onClose}><aside className="assistant" onClick={e=>e.stopPropagation()}><header><div className="ai-orb"><I.Sparkles/></div><span><b>Ask Nexora</b><small>{source==='gemini'?'Connecté à Gemini · analyse en direct':source==='demo'?'Mode démonstration · Gemini indisponible':'Assistant connecté à vos données'}</small></span><button onClick={onClose}><I.X/></button></header><div className="assistant-body"><div className="assistant-welcome"><I.Bot/><h2>Comment puis-je vous aider ?</h2><p>Je peux analyser vos offres, candidatures, clients et workflows pour vous proposer la prochaine meilleure action.</p></div>{!answer&&!loading&&<div className="suggestions">{suggestions.map(x=><button key={x} onClick={()=>ask(x)}>{x}<I.ArrowUpRight/></button>)}</div>}{loading&&<div className="ai-answer loading"><small>NEXORA RÉFLÉCHIT…</small><p><I.LoaderCircle className="spin"/> Analyse de vos données en cours.</p></div>}{!loading&&answer&&<div className="ai-answer"><small>{source==='gemini'?'RÉPONSE GEMINI':'ANALYSE NEXORA (DÉMO)'}</small><p>{answer}</p><div><button onClick={()=>toast('Éléments liés affichés')}>Voir les éléments</button><button className="primary" onClick={()=>{toast('Actions préparées par Nexora');onClose()}}>Préparer les actions</button></div></div>}</div><footer><div><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!loading&&ask()} placeholder="Demandez quelque chose à Nexora…" disabled={loading}/><button onClick={()=>ask()} disabled={loading}><I.ArrowUp/></button></div><small>Nexora peut faire des erreurs. Vérifiez les actions importantes.</small></footer></aside></div>
 }
 export default function Home() {
   let [mode, setMode] = useState<Mode>('candidate');

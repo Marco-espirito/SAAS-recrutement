@@ -131,3 +131,8 @@ body{background:radial-gradient(circle at 65% -20%,#e8e3ff 0,transparent 30%),va
 .test-trace ul{margin:4px 0 0;padding-left:18px;font-size:10px}
 
 @media(max-width:760px){.builder-body{grid-template-columns:1fr}.builder-preview{border-left:0;border-top:1px solid var(--line)}.trigger-grid,.test-fields{grid-template-columns:1fr}}
+
+/* ===== Assistant Nexora AI (réponses Gemini réelles + repli démo) ===== */
+.ai-answer.loading{display:flex;flex-direction:column;gap:6px}
+.ai-answer.loading p{display:flex;align-items:center;gap:8px;color:var(--muted);margin:0}
+.ai-answer .spin{width:16px;animation:cv-spin 1s linear infinite}
