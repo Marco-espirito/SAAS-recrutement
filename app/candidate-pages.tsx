@@ -1,24 +1,218 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import * as I from 'lucide-react';
+import {
+  type StoredOffer,
+  STATUS_LABEL,
+  initialOffers,
+  initialSyncCallIndex,
+  simulateProviderFetch,
+  syncOffers,
+} from '@/lib/offers';
+import {
+  type MatchFeedback,
+  type MatchResult,
+  computeMatch,
+  defaultCandidateProfile,
+  qualityStats,
+} from '@/lib/matching';
 
 type Toast=(message:string)=>void;
-type Job={id:number;company:string;title:string;location:string;salary:string;match:number;skills:string[];saved?:boolean;applied?:boolean};
-const seedJobs:Job[]=[
- {id:1,company:'ACME Corp',title:'Data Analyst',location:'Lyon, France',salary:'45 000 € – 55 000 €',match:92,skills:['SQL','Power BI','Excel','KPIs']},
- {id:2,company:'GreenTech',title:'Data Engineer',location:'Lyon, France',salary:'50 000 € – 65 000 €',match:88,skills:['Python','SQL','Databricks','AWS']},
- {id:3,company:'InnovaData',title:'Data Scientist',location:'Lyon, France',salary:'48 000 € – 60 000 €',match:84,skills:['Python','Machine Learning','Pandas']},
- {id:4,company:'Data Analytics',title:'BI Analyst',location:'Villeurbanne, France',salary:'38 000 € – 45 000 €',match:78,skills:['Power BI','DAX','SQL','Reporting']},
- {id:5,company:'TechFlow',title:'Data Analyst Junior',location:'Lyon, France',salary:'32 000 € – 38 000 €',match:75,skills:['SQL','Excel','Tableaux de bord']},
- {id:6,company:'People & Data',title:'Data Analyst RH',location:'Lyon, France',salary:'40 000 € – 48 000 €',match:72,skills:['SQL','Power BI','HR Analytics']},
-];
-function useStored<T>(key:string,initial:T){const[state,setState]=useState<T>(initial);useEffect(()=>{try{let v=localStorage.getItem(key);if(v)setState(JSON.parse(v))}catch{}},[key]);useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(state))}catch{}},[key,state]);return[state,setState]as const}
+export type AppliedOffer={id:string;company:string;title:string;match:number};
+// Persistance localStorage robuste face au double-rendu des effets en mode
+// développement (React Strict Mode) : sans le drapeau `skipNextWrite`, l'effet
+// d'écriture peut s'exécuter avec la valeur initiale (avant que la lecture
+// n'ait restauré les données) et écraser silencieusement ce qui était
+// enregistré. Le drapeau, réarmé à chaque restauration, protège l'écriture
+// qui suit immédiatement une lecture, quel que soit le nombre de fois où la
+// paire lecture/écriture est rejouée avant le premier rendu effectif.
+export function useStored<T>(key:string,initial:T){
+  const[state,setState]=useState<T>(initial);
+  const skipNextWrite=useRef(false);
+  useEffect(()=>{
+    try{
+      const v=localStorage.getItem(key);
+      if(v!==null){skipNextWrite.current=true;setState(JSON.parse(v))}
+    }catch{}
+  },[key]);
+  useEffect(()=>{
+    if(skipNextWrite.current){skipNextWrite.current=false;return}
+    try{localStorage.setItem(key,JSON.stringify(state))}catch{}
+  },[key,state]);
+  return[state,setState]as const;
+}
 const Btn=({children,onClick,primary=false}:{children:React.ReactNode,onClick?:()=>void,primary?:boolean})=><button className={primary?'action primary':'action'} onClick={onClick}>{children}</button>;
 function PageHead({title,subtitle,children}:{title:string,subtitle:string,children?:React.ReactNode}){return <div className="module-head"><div><h1>{title}</h1><p>{subtitle}</p></div><div>{children}</div></div>}
 
-export function JobsPage({toast,onApplied}:{toast:Toast,onApplied:(j:Job)=>void}){const[jobs,setJobs]=useStored<Job[]>('jobpilot_jobs',seedJobs);const[query,setQuery]=useState('');const[location,setLocation]=useState('Lyon, France');const[onlySaved,setOnlySaved]=useState(false);const filtered=jobs.filter(j=>(j.title+j.company+j.skills.join(' ')).toLowerCase().includes(query.toLowerCase())&&(!location||j.location.includes(location.split(',')[0]))&&(!onlySaved||j.saved));function toggle(id:number){setJobs(v=>v.map(j=>j.id===id?{...j,saved:!j.saved}:j));toast('Favoris mis à jour')};function apply(j:Job){setJobs(v=>v.map(x=>x.id===j.id?{...x,applied:true}:x));onApplied(j);toast(`Candidature créée pour ${j.company}`)}return <div><PageHead title="Offres d’emploi" subtitle="Trouvez l’opportunité qui correspond à votre prochain défi."/><section className="job-search panel"><label>Poste<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ex : Data Analyst"/></label><label>Lieu<input value={location} onChange={e=>setLocation(e.target.value)}/></label><label>Contrat<select><option>CDI</option><option>CDD</option><option>Alternance</option></select></label><label>Télétravail<select><option>Tous</option><option>Hybride</option><option>À distance</option></select></label><Btn onClick={()=>setOnlySaved(!onlySaved)}>{onlySaved?'Tous les résultats':'Mes favoris'}</Btn><Btn primary onClick={()=>toast(`${filtered.length} offres trouvées`)}><I.Search/>Rechercher</Btn></section><div className="jobs-layout"><aside className="panel filters"><h3>Filtres</h3><b>Mots-clés</b><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="SQL, Power BI, Python"/><b>Localisation</b>{['Lyon (254)','Villeurbanne (63)','Caluire-et-Cuire (28)','Écully (22)'].map((x,n)=><label key={x}><input type="checkbox" defaultChecked={!n}/>{x}</label>)}<b>Contrat</b>{['CDI (186)','CDD (28)','Intérim (14)','Alternance (20)','Stage (16)'].map((x,n)=><label key={x}><input type="checkbox" defaultChecked={!n}/>{x}</label>)}<b>Télétravail</b>{['Télétravail complet','Hybride','Sur site'].map((x,n)=><label key={x}><input type="checkbox" defaultChecked={n===1}/>{x}</label>)}<Btn onClick={()=>{setQuery('');setLocation('Lyon, France');setOnlySaved(false)}}>Réinitialiser les filtres</Btn></aside><section className="panel results"><header><b>{filtered.length} offres trouvées</b><span>Lyon　×　 CDI　×</span><select><option>Plus récentes</option><option>Meilleur match</option><option>Salaire</option></select></header>{filtered.map((j,n)=><article className="offer-row" key={j.id}><i>{j.company.slice(0,2).toUpperCase()}</i><div className="offer-company"><b>{j.company} ✓</b><small>Technologie · 200-500 salariés</small></div><div className="offer-role"><b>{j.title}</b><small>⌖ {j.location}　○ CDI　▣ Hybride</small><p>{j.skills.map(s=><span key={s}>{s}</span>)}</p></div><div className="offer-salary"><b>{j.salary}</b><small>annuel brut</small></div><small>Il y a {n+1} jour{n?'s':''}</small><button onClick={()=>toast(`Aperçu de ${j.title} ouvert`)}>Voir l’offre</button><button className={j.saved?'saved':''} onClick={()=>toggle(j.id)}><I.Bookmark/></button><button className="apply" disabled={j.applied} onClick={()=>apply(j)}>{j.applied?'Candidature envoyée':'Candidater'}</button></article>)}{!filtered.length&&<div className="empty">Aucune offre ne correspond à ces filtres.</div>}</section></div></div>}
+// ------------------------------------------------------------------
+// Offres d'emploi — persistance, déduplication, expiration et retrait
+// géré par lib/offers.ts. Chaque synchronisation interroge le
+// connecteur (simulé) et fusionne le résultat avec le fonds déjà
+// enregistré : rien n'est jamais supprimé, seulement requalifié.
+// ------------------------------------------------------------------
+export function JobsPage({toast,onApplied}:{toast:Toast,onApplied:(j:AppliedOffer)=>void}){
+  const [offers,setOffers]=useStored<StoredOffer[]>('jobpilot_offers_v3',initialOffers);
+  const [callIndex,setCallIndex]=useStored<number>('jobpilot_offers_sync_idx',initialSyncCallIndex);
+  const [lastSync,setLastSync]=useStored<string>('jobpilot_offers_last_sync','');
+  const [query,setQuery]=useState('');
+  const [location,setLocation]=useState('Lyon, France');
+  const [onlySaved,setOnlySaved]=useState(false);
+  const [showInactive,setShowInactive]=useState(false);
 
-export function MatchingPage({toast,onApplied}:{toast:Toast,onApplied:(j:Job)=>void}){const[selected,setSelected]=useState(seedJobs[0]);const[letter,setLetter]=useState('');function generate(){setLetter(`Madame, Monsieur,\n\nVotre offre de ${selected.title} chez ${selected.company} correspond directement à mon expérience en analyse de données et à ma maîtrise de ${selected.skills.slice(0,3).join(', ')}. Je serais ravie d’échanger avec vous sur mes contributions possibles.\n\nCordialement,\nSophie Martin`);toast('Lettre personnalisée générée')}return <div><PageHead title="Matching IA ✦" subtitle="Des offres qui correspondent à votre profil et à vos objectifs de carrière."><Btn onClick={()=>toast('32 correspondances actualisées')}><I.RefreshCw/>Actualiser</Btn></PageHead><div className="matching-layout"><section className="panel match-list"><header><h3>Vos meilleures correspondances</h3><span>32 offres</span></header>{seedJobs.slice(0,5).map(j=><button className={selected.id===j.id?'selected':''} key={j.id} onClick={()=>setSelected(j)}><strong>{j.match}%</strong><span><b>{j.title}</b><small>{j.company}<br/>{j.location}　•　Hybride</small></span><I.Bookmark/></button>)}</section><section className="panel match-detail"><header><i>{selected.company.slice(0,2)}</i><span><h2>{selected.title}</h2><b>{selected.company} ✓</b><small>{selected.location}　•　Hybride　•　CDI</small></span><strong>{selected.match}%<small>Excellent match</small></strong></header><nav><b>Analyse</b><span>Détails de l’offre</span><span>Entreprise</span><span>Avis</span></nav><h3>✦ Pourquoi ce match</h3><p>Votre expérience en gestion de produit, votre maîtrise des méthodologies Agile et votre sens de l’analyse correspondent aux besoins de {selected.company}.</p><div className="match-metrics"><span>Niveau d’adéquation<b>{selected.match}%</b><small>Excellent match</small></span><span>Points forts<b>7</b><small>compétences clés</small></span><span>Écart estimé<b>Faible</b><small>Peu de compétences à développer</small></span></div><div className="skill-boxes"><div><h3>✓ Compétences alignées</h3>{['Gestion de produit','Roadmap produit','Méthodologie Agile','Analyse de données','User Research','Tests A/B'].map(x=><span key={x}>{x}</span>)}</div><div><h3>⌕ Compétences manquantes</h3>{['SQL avancé','Expérience SaaS B2B','OKR'].map(x=><span className="miss" key={x}>{x}</span>)}</div><aside><h3>Passez à l’action</h3><Btn primary onClick={()=>toast('Version du CV adaptée créée')}>Adapter mon CV</Btn><Btn onClick={generate}>Générer lettre</Btn><Btn onClick={()=>{onApplied(selected);toast('Ajoutée à vos candidatures')}}>Ajouter à mes candidatures</Btn></aside></div>{letter&&<div className="generated"><header><b>Lettre générée</b><button onClick={()=>navigator.clipboard?.writeText(letter)}>Copier</button><button onClick={()=>setLetter('')}>Fermer</button></header><pre>{letter}</pre></div>}</section></div></div>}
+  const visible=offers.filter(o=>showInactive||o.status==='active'||o.status==='expiring_soon');
+  const filtered=visible.filter(o=>(o.title+o.company+o.skills.join(' ')).toLowerCase().includes(query.toLowerCase())&&(!location||o.location.includes(location.split(',')[0]))&&(!onlySaved||o.saved));
+
+  function toggleSave(id:string){setOffers(v=>v.map(o=>o.id===id?{...o,saved:!o.saved}:o));toast('Favoris mis à jour')}
+  function apply(o:StoredOffer){
+    if(o.status==='expired'||o.status==='retired_by_source'){toast('Cette offre n’est plus disponible : candidature impossible');return}
+    setOffers(v=>v.map(x=>x.id===o.id?{...x,applied:true}:x));
+    const result=computeMatch(defaultCandidateProfile,o);
+    onApplied({id:o.id,company:o.company,title:o.title,match:result.score});
+    toast(`Candidature créée pour ${o.company}`);
+  }
+  function runSync(){
+    const now=new Date();
+    const fetched=simulateProviderFetch(callIndex);
+    const result=syncOffers(offers,fetched,now);
+    setOffers(result.offers);
+    setCallIndex(callIndex+1);
+    setLastSync(now.toISOString());
+    const parts:string[]=[];
+    if(result.added)parts.push(`${result.added} nouvelle${result.added>1?'s':''}`);
+    if(result.updated)parts.push(`${result.updated} mise${result.updated>1?'s':''} à jour`);
+    if(result.reactivated)parts.push(`${result.reactivated} réactivée${result.reactivated>1?'s':''}`);
+    if(result.retired)parts.push(`${result.retired} retirée${result.retired>1?'s':''} par la source`);
+    if(result.duplicatesSkipped)parts.push(`${result.duplicatesSkipped} doublon${result.duplicatesSkipped>1?'s':''} ignoré${result.duplicatesSkipped>1?'s':''}`);
+    toast(parts.length?`Synchronisation : ${parts.join(', ')}`:'Synchronisation : aucun changement détecté');
+  }
+  const counts=useMemo(()=>({
+    active:offers.filter(o=>o.status==='active').length,
+    expiring:offers.filter(o=>o.status==='expiring_soon').length,
+    expired:offers.filter(o=>o.status==='expired').length,
+    retired:offers.filter(o=>o.status==='retired_by_source').length,
+  }),[offers]);
+
+  return <div>
+    <PageHead title="Offres d’emploi" subtitle="Trouvez l’opportunité qui correspond à votre prochain défi.">
+      <Btn onClick={runSync}><I.RefreshCw/>Synchroniser les offres</Btn>
+    </PageHead>
+    <section className="panel offer-sync">
+      <div className="offer-sync-stats">
+        <span><b>{counts.active}</b><small>actives</small></span>
+        <span><b>{counts.expiring}</b><small>expirent bientôt</small></span>
+        <span><b>{counts.expired}</b><small>expirées</small></span>
+        <span><b>{counts.retired}</b><small>retirées · copie conservée</small></span>
+      </div>
+      <div className="offer-sync-meta">
+        <span>{lastSync?`Dernière synchronisation : ${new Date(lastSync).toLocaleString('fr-FR')}`:'Fonds initial — lancez une synchronisation pour interroger le connecteur.'}</span>
+        <label className="b-toggle small"><input type="checkbox" checked={showInactive} onChange={e=>setShowInactive(e.target.checked)}/>Afficher aussi les offres expirées / retirées</label>
+      </div>
+    </section>
+    <section className="job-search panel"><label>Poste<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ex : Data Analyst"/></label><label>Lieu<input value={location} onChange={e=>setLocation(e.target.value)}/></label><label>Contrat<select><option>CDI</option><option>CDD</option><option>Alternance</option></select></label><label>Télétravail<select><option>Tous</option><option>Hybride</option><option>À distance</option></select></label><Btn onClick={()=>setOnlySaved(!onlySaved)}>{onlySaved?'Tous les résultats':'Mes favoris'}</Btn><Btn primary onClick={()=>toast(`${filtered.length} offres trouvées`)}><I.Search/>Rechercher</Btn></section>
+    <div className="jobs-layout">
+      <aside className="panel filters"><h3>Filtres</h3><b>Mots-clés</b><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="SQL, Power BI, Python"/><b>Localisation</b>{['Lyon (254)','Villeurbanne (63)','Caluire-et-Cuire (28)','Écully (22)'].map((x,n)=><label key={x}><input type="checkbox" defaultChecked={!n}/>{x}</label>)}<b>Contrat</b>{['CDI (186)','CDD (28)','Intérim (14)','Alternance (20)','Stage (16)'].map((x,n)=><label key={x}><input type="checkbox" defaultChecked={!n}/>{x}</label>)}<b>Télétravail</b>{['Télétravail complet','Hybride','Sur site'].map((x,n)=><label key={x}><input type="checkbox" defaultChecked={n===1}/>{x}</label>)}<Btn onClick={()=>{setQuery('');setLocation('Lyon, France');setOnlySaved(false)}}>Réinitialiser les filtres</Btn></aside>
+      <section className="panel results">
+        <header><b>{filtered.length} offres trouvées</b><span>{location.split(',')[0]}</span><select><option>Plus récentes</option><option>Meilleur match</option><option>Salaire</option></select></header>
+        {filtered.map(o=>
+          <article className={`offer-row status-${o.status}`} key={o.id}>
+            <i>{o.company.slice(0,2).toUpperCase()}</i>
+            <div className="offer-company"><b>{o.company} ✓</b><small>{o.source}</small></div>
+            <div className="offer-role">
+              <b>{o.title}</b>
+              <small>⌖ {o.location}　○ {o.contract}　▣ {o.remote}</small>
+              <p>{o.skills.map(s=><span key={s}>{s}</span>)}</p>
+              <p className="offer-status-line"><span className={`offer-status ${o.status}`}>{STATUS_LABEL[o.status]}</span><small>Vue depuis le {new Date(o.firstSeenAt).toLocaleDateString('fr-FR')}{o.seenCount>1?` · vue ${o.seenCount}×`:''}</small></p>
+            </div>
+            <div className="offer-salary"><b>{o.salary}</b><small>annuel brut</small></div>
+            <small>{o.retiredAt?'Retirée':o.status==='expired'?'Expirée':'Publiée'} {new Date(o.retiredAt||o.postedAt).toLocaleDateString('fr-FR')}</small>
+            <button onClick={()=>toast(`Aperçu de ${o.title} ouvert`)}>Voir l’offre</button>
+            <button className={o.saved?'saved':''} onClick={()=>toggleSave(o.id)}><I.Bookmark/></button>
+            <button className="apply" disabled={o.applied||o.status==='expired'||o.status==='retired_by_source'} onClick={()=>apply(o)}>{o.applied?'Candidature envoyée':o.status==='expired'||o.status==='retired_by_source'?'Indisponible':'Candidater'}</button>
+          </article>
+        )}
+        {!filtered.length&&<div className="empty">Aucune offre ne correspond à ces filtres.</div>}
+      </section>
+    </div>
+  </div>;
+}
+
+// ------------------------------------------------------------------
+// Matching IA — comparaison structurée par lib/matching.ts : le score
+// est une somme pondérée de critères justifiés, chaque compétence
+// manquante est reliée à la phrase de l'offre qui la prouve, et les
+// retours des candidats alimentent un suivi de qualité.
+// ------------------------------------------------------------------
+export function MatchingPage({toast,onApplied}:{toast:Toast,onApplied:(j:AppliedOffer)=>void}){
+  const [offers]=useStored<StoredOffer[]>('jobpilot_offers_v3',initialOffers);
+  const [feedback,setFeedback]=useStored<MatchFeedback[]>('nexora_match_feedback',[]);
+  const candidateOffers=useMemo(()=>offers.filter(o=>o.status!=='retired_by_source'),[offers]);
+  const results=useMemo(()=>candidateOffers.map(o=>computeMatch(defaultCandidateProfile,o)).sort((a,b)=>b.score-a.score),[candidateOffers]);
+  const [selectedId,setSelectedId]=useState<string|undefined>(results[0]?.offerId);
+  const selected=results.find(r=>r.offerId===selectedId)||results[0];
+  const selectedOffer=candidateOffers.find(o=>o.id===selected?.offerId);
+  const [letter,setLetter]=useState('');
+  const stats=useMemo(()=>qualityStats(feedback),[feedback]);
+  const alreadyRated=feedback.some(f=>f.offerId===selected?.offerId);
+
+  function generate(){
+    if(!selectedOffer||!selected)return;
+    setLetter(`Madame, Monsieur,\n\nVotre offre de ${selectedOffer.title} chez ${selectedOffer.company} correspond directement à mon expérience en analyse de données et à ma maîtrise de ${selected.matchedSkills.slice(0,3).join(', ')||'mes compétences clés'}. Je serais ravie d’échanger avec vous sur mes contributions possibles.\n\nCordialement,\nSophie Martin`);
+    toast('Lettre personnalisée générée');
+  }
+  function rate(helpful:boolean){
+    if(!selected||!selectedOffer)return;
+    setFeedback(v=>[...v.filter(f=>f.offerId!==selected.offerId),{offerId:selected.offerId,offerLabel:`${selectedOffer.title} · ${selectedOffer.company}`,score:selected.score,helpful,at:new Date().toISOString()}]);
+    toast(helpful?'Merci, recommandation marquée pertinente':'Merci, retour pris en compte pour affiner le matching');
+  }
+
+  if(!selected||!selectedOffer)return <div><PageHead title="Matching IA ✦" subtitle="Des offres qui correspondent à votre profil et à vos objectifs de carrière."/><div className="empty">Aucune offre disponible pour le matching. Synchronisez les offres depuis l’onglet « Offres d’emploi ».</div></div>;
+
+  return <div>
+    <PageHead title="Matching IA ✦" subtitle="Comparaison structurée par le moteur Nexora, à partir des offres réellement enregistrées.">
+      <Btn onClick={()=>toast(`${results.length} correspondances recalculées`)}><I.RefreshCw/>Actualiser</Btn>
+    </PageHead>
+    {stats&&<section className="panel quality-card">
+      <I.BadgeCheck/>
+      <div><small>QUALITÉ DES RECOMMANDATIONS</small><b>{stats.helpfulRate}% jugées pertinentes</b><p>{stats.total} retour{stats.total>1?'s':''} · score moyen {stats.avgScoreHelpful}% quand jugé pertinent contre {stats.avgScoreNotHelpful}% sinon.</p></div>
+    </section>}
+    <div className="matching-layout">
+      <section className="panel match-list">
+        <header><h3>Vos meilleures correspondances</h3><span>{results.length} offres</span></header>
+        {results.map(r=>{const o=candidateOffers.find(x=>x.id===r.offerId);if(!o)return null;return <button className={selected.offerId===r.offerId?'selected':''} key={r.offerId} onClick={()=>setSelectedId(r.offerId)}><strong>{r.score}%</strong><span><b>{o.title}</b><small>{o.company}<br/>{o.location}　•　{o.remote}</small></span><I.Bookmark/></button>})}
+      </section>
+      <section className="panel match-detail">
+        <header><i>{selectedOffer.company.slice(0,2)}</i><span><h2>{selectedOffer.title}</h2><b>{selectedOffer.company} ✓</b><small>{selectedOffer.location}　•　{selectedOffer.remote}　•　{selectedOffer.contract}</small></span><strong>{selected.score}%<small>{selected.confidence}</small></strong></header>
+        <h3>✦ Pourquoi ce score — justification détaillée</h3>
+        <div className="match-breakdown">
+          {selected.criteria.map(c=><div className="match-crit" key={c.key}>
+            <div className="match-crit-head"><b>{c.label}</b><small>poids {Math.round(c.weight*100)}%</small><strong>{Math.round(c.score*100)}%</strong></div>
+            <span className="match-crit-bar"><i style={{width:`${Math.round(c.score*100)}%`}}/></span>
+            <small>{c.detail}</small>
+          </div>)}
+        </div>
+        <div className="match-metrics"><span>Score final<b>{selected.score}%</b><small>{selected.confidence}</small></span><span>Compétences alignées<b>{selected.matchedSkills.length}</b><small>sur {selected.matchedSkills.length+selected.missingSkills.length} requises</small></span><span>Écart<b>{selected.missingSkills.length?`${selected.missingSkills.length} manquante(s)`:'Aucun'}</b><small>preuves ci-dessous</small></span></div>
+        <div className="skill-boxes">
+          <div><h3>✓ Compétences alignées</h3>{selected.matchedSkills.length?selected.matchedSkills.map(x=><span key={x}>{x}</span>):<small>Aucune compétence commune détectée.</small>}</div>
+          <div><h3>⌕ Compétences manquantes — preuve à l’appui</h3>{selected.missingSkills.length?selected.missingSkills.map(x=><p className="miss-evidence" key={x.skill}><span className="miss">{x.skill}</span><small>« {x.evidence} »</small></p>):<small>Aucune compétence manquante détectée.</small>}</div>
+        </div>
+        <aside>
+          <h3>Passez à l’action</h3>
+          <Btn primary onClick={()=>toast('Version du CV adaptée créée')}>Adapter mon CV</Btn>
+          <Btn onClick={generate}>Générer lettre</Btn>
+          <Btn onClick={()=>{onApplied({id:selectedOffer.id,company:selectedOffer.company,title:selectedOffer.title,match:selected.score});toast('Ajoutée à vos candidatures')}}>Ajouter à mes candidatures</Btn>
+          <div className="match-feedback">
+            <small>Cette recommandation vous semble-t-elle pertinente ?</small>
+            <div>
+              <button className={alreadyRated&&feedback.find(f=>f.offerId===selected.offerId)?.helpful?'active':''} onClick={()=>rate(true)}><I.ThumbsUp/></button>
+              <button className={alreadyRated&&!feedback.find(f=>f.offerId===selected.offerId)?.helpful?'active':''} onClick={()=>rate(false)}><I.ThumbsDown/></button>
+            </div>
+          </div>
+        </aside>
+        {letter&&<div className="generated"><header><b>Lettre générée</b><button onClick={()=>navigator.clipboard?.writeText(letter)}>Copier</button><button onClick={()=>setLetter('')}>Fermer</button></header><pre>{letter}</pre></div>}
+      </section>
+    </div>
+  </div>;
+}
 
 type Application={id:number;company:string;role:string;stage:string;score:number};
 const seedApps:Application[]=[{id:1,company:'Alan',role:'Product Designer',stage:'À postuler',score:82},{id:2,company:'Airbus',role:'Data Analyst',stage:'Envoyée',score:88},{id:3,company:'ACME Corp',role:'Business Analyst',stage:'Relance',score:84},{id:4,company:'GreenTech',role:'Sustainability Analyst',stage:'Relance',score:79},{id:5,company:'PayFit',role:'Product Manager',stage:'Entretien',score:87},{id:6,company:'Qonto',role:'Product Designer',stage:'Offre',score:91},{id:7,company:'Stripe',role:'Data Analyst',stage:'Refusée',score:76}];

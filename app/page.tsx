@@ -8,8 +8,19 @@ import {
   JobsPage,
   MatchingPage,
   Toast,
+  useStored,
+  type AppliedOffer,
 } from './candidate-pages';
 import { ImportedCVSummary, parseCV, type ParsedCV } from './cv-import';
+import {
+  ACTIONS_CATALOG,
+  AutomationBuilder,
+  describeGroup,
+  triggerOf,
+  type AutomationFlow,
+  type ConditionGroup,
+  type ConditionLeaf,
+} from './automation-builder';
 type Mode = 'candidate' | 'recruiter' | 'admin';
 type CandidateTab =
   | 'Tableau de bord'
@@ -1127,19 +1138,122 @@ function CRMPage({toast}:{toast:(x:string)=>void}) {
   </div>
 }
 
+// ------------------------------------------------------------------
+// Seeds au format du constructeur visuel (app/automation-builder.tsx) :
+// des identifiants et dates fixes, pour rester déterministes entre le
+// rendu serveur et le premier rendu client.
+// ------------------------------------------------------------------
+function seedLeaf(id: string, field: string, operator: string, value: string): ConditionLeaf {
+  return { id, kind: 'leaf', field, operator, value };
+}
+function seedGroup(id: string, children: ConditionLeaf[]): ConditionGroup {
+  return { id, kind: 'group', op: 'AND', children };
+}
+const seedFlows: AutomationFlow[] = [
+  {
+    id: 'seed-relance',
+    name: 'Relance sans réponse',
+    triggerKind: 'no_response',
+    conditions: seedGroup('seed-relance-g', [seedLeaf('seed-relance-l1', 'daysSince', 'gte', '7')]),
+    delay: { amount: 2, unit: 'heures' },
+    actions: [{ id: 'seed-relance-a1', kind: 'send_message', params: { channel: 'Email', template: 'Relance polie après 7 jours sans réponse.' } }],
+    status: 'active',
+    createdAt: '2026-08-20T09:00:00.000Z',
+    executions: 12,
+    lastRun: '2026-09-20T08:00:00.000Z',
+  },
+  {
+    id: 'seed-jobwatcher',
+    name: 'Job Watcher Data Lyon',
+    triggerKind: 'new_offer',
+    conditions: seedGroup('seed-jw-g', [
+      seedLeaf('seed-jw-l1', 'match', 'gte', '80'),
+      seedLeaf('seed-jw-l2', 'location', 'contains', 'Lyon'),
+    ]),
+    actions: [{ id: 'seed-jw-a1', kind: 'create_task', params: { title: 'Analyser et préparer la candidature' } }],
+    status: 'active',
+    createdAt: '2026-08-18T09:00:00.000Z',
+    executions: 38,
+    lastRun: '2026-09-21T07:30:00.000Z',
+  },
+  {
+    id: 'seed-qualif',
+    name: 'Qualification candidat',
+    triggerKind: 'candidate_added',
+    conditions: seedGroup('seed-q-g', [seedLeaf('seed-q-l1', 'cvComplete', 'eq', 'Oui')]),
+    actions: [{ id: 'seed-q-a1', kind: 'add_to_pipeline', params: { stage: 'Qualifiés' } }],
+    status: 'active',
+    createdAt: '2026-08-10T09:00:00.000Z',
+    executions: 24,
+    lastRun: '2026-09-19T14:10:00.000Z',
+  },
+  {
+    id: 'seed-linkedin',
+    name: 'LinkedIn Watcher',
+    triggerKind: 'application_sent',
+    conditions: seedGroup('seed-li-g', [seedLeaf('seed-li-l1', 'stage', 'eq', 'Relance')]),
+    actions: [{ id: 'seed-li-a1', kind: 'notify', params: { message: 'Contact décideur détecté, créer une tâche de prospection.' } }],
+    status: 'paused',
+    createdAt: '2026-08-05T09:00:00.000Z',
+    executions: 0,
+  },
+];
+
 function AutomationsPage({toast}:{toast:(x:string)=>void}) {
-  const [enabled,setEnabled] = useState([true,true,true,false]);
-  const flows = [
-    ['Relance sans réponse','Candidature envoyée','Attendre 7 jours','Générer et envoyer une relance','12 exécutions'],
-    ['Job Watcher Data Lyon','Nouvelle offre détectée','Match > 80 % · Lyon','Analyser et préparer la candidature','38 offres'],
-    ['Qualification candidat','Candidat ajouté','CV complet','Scorer et ajouter au pipeline','24 candidats'],
-    ['LinkedIn Watcher','Nouveau signal','Contact décideur','Créer une tâche de prospection','Connexion requise'],
-  ];
-  function toggle(n:number){setEnabled(v=>v.map((x,i)=>i===n?!x:x));toast(enabled[n]?'Automatisation mise en pause':'Automatisation activée')}
-  return <div><div className="module-head"><div><h1>Centre d’automatisation</h1><p>Nexora surveille, décide et agit selon vos règles.</p></div><button className="action primary" onClick={()=>toast('Éditeur de workflow ouvert')}><I.Plus/>Créer un workflow</button></div>
-    <section className="automation-hero"><I.Zap/><div><small>ACTIVITÉ DES 30 DERNIERS JOURS</small><h2>74 tâches exécutées automatiquement</h2><p>Environ 9 h 20 économisées par votre équipe.</p></div><span><b>98,6%</b><small>de réussite</small></span></section>
-    <div className="flow-grid">{flows.map((f,n)=><article className="panel flow-card" key={f[0]}><header><i className={enabled[n]?'on':''}><I.Zap/></i><div><h3>{f[0]}</h3><small>{f[4]}</small></div><button className={`switch ${enabled[n]?'on':''}`} onClick={()=>toggle(n)}><i/></button></header><div className="flow"><span><small>QUAND</small><b>{f[1]}</b></span><I.ArrowRight/><span><small>SI / ATTENDRE</small><b>{f[2]}</b></span><I.ArrowRight/><span><small>ALORS</small><b>{f[3]}</b></span></div><footer><span className={enabled[n]?'live':''}>● {enabled[n]?'Active':'En pause'}</span><button onClick={()=>toast(`Historique de « ${f[0]} » ouvert`)}>Voir l’historique</button></footer></article>)}</div>
-  </div>
+  const [flows, setFlows] = useStored<AutomationFlow[]>('nexora_automation_flows_v2', seedFlows);
+  const [editing, setEditing] = useState<AutomationFlow | 'new' | null>(null);
+
+  function toggle(id: string) {
+    setFlows((v) =>
+      v.map((f) => (f.id === id ? { ...f, status: f.status === 'active' ? 'paused' : 'active' } : f)),
+    );
+    const f = flows.find((x) => x.id === id);
+    toast(f?.status === 'active' ? 'Automatisation mise en pause' : 'Automatisation activée');
+  }
+  function saveFlow(next: AutomationFlow) {
+    setFlows((v) => (v.some((f) => f.id === next.id) ? v.map((f) => (f.id === next.id ? next : f)) : [next, ...v]));
+    setEditing(null);
+  }
+  const totalExecutions = flows.reduce((s, f) => s + f.executions, 0);
+  const activeCount = flows.filter((f) => f.status === 'active').length;
+
+  return <div>
+    <div className="module-head">
+      <div><h1>Centre d’automatisation</h1><p>Nexora surveille, décide et agit selon vos règles — construites visuellement, testées avant activation.</p></div>
+      <button className="action primary" onClick={() => setEditing('new')}><I.Plus/>Créer un workflow</button>
+    </div>
+    <section className="automation-hero">
+      <I.Zap/>
+      <div><small>ACTIVITÉ DE LA PLATEFORME</small><h2>{totalExecutions} tâches exécutées automatiquement</h2><p>{activeCount} workflow{activeCount>1?'s':''} actif{activeCount>1?'s':''} sur {flows.length} au total.</p></div>
+      <span><b>{flows.length?Math.round(activeCount/flows.length*100):0}%</b><small>de workflows actifs</small></span>
+    </section>
+    <div className="flow-grid">
+      {flows.map((f) => {
+        const trigger = triggerOf(f.triggerKind);
+        const isOn = f.status === 'active';
+        return <article className="panel flow-card" key={f.id}>
+          <header>
+            <i className={isOn?'on':''}><I.Zap/></i>
+            <div><h3>{f.name}</h3><small>{f.executions} exécution{f.executions>1?'s':''}{f.status==='draft'?' · brouillon':''}</small></div>
+            <button className={`switch ${isOn?'on':''}`} onClick={()=>toggle(f.id)}><i/></button>
+          </header>
+          <div className="flow">
+            <span><small>QUAND</small><b>{trigger.label}</b></span>
+            <I.ArrowRight/>
+            <span><small>SI{f.delay?' / ATTENDRE':''}</small><b>{describeGroup(f.conditions, trigger.fields)}{f.delay?` · puis ${f.delay.amount} ${f.delay.unit}`:''}</b></span>
+            <I.ArrowRight/>
+            <span><small>ALORS</small><b>{f.actions.map(a=>ACTIONS_CATALOG.find(x=>x.kind===a.kind)?.label||a.kind).join(', ')||'Aucune action'}</b></span>
+          </div>
+          <footer>
+            <span className={isOn?'live':''}>● {f.status==='draft'?'Brouillon':isOn?'Active':'En pause'}</span>
+            <button onClick={()=>setEditing(f)}><I.ListTree/>Modifier</button>
+            <button onClick={()=>toast(`Historique de « ${f.name} » : ${f.executions} exécution${f.executions>1?'s':''}${f.lastRun?`, dernière le ${new Date(f.lastRun).toLocaleDateString('fr-FR')}`:''}`)}>Voir l’historique</button>
+          </footer>
+        </article>;
+      })}
+    </div>
+    {editing && <AutomationBuilder flow={editing==='new'?null:editing} onSave={saveFlow} onClose={()=>setEditing(null)} toast={toast} />}
+  </div>;
 }
 
 function RecruiterDashboard({setTab}:{setTab:(x:any)=>void}) {
@@ -1380,11 +1494,11 @@ export default function Home() {
       }, 60),
     );
   }
-  function applied(j: any) {
+  function applied(j: AppliedOffer) {
     setExternal((v) => [
       ...v,
       {
-        id: 10000 + j.id,
+        id: Date.now() + Math.floor(Math.random() * 1000),
         company: j.company,
         role: j.title,
         stage: 'Envoyée',
