@@ -1,4 +1,5 @@
 import { env } from '@/lib/server/env';
+import { resolveAiProvider } from '@/lib/server/ai';
 import { handleApiError, requireSession } from '@/lib/server/http';
 
 export async function GET() {
@@ -7,7 +8,7 @@ export async function GET() {
     const configuration = env();
     return Response.json({
       integrations: {
-        openai: Boolean(configuration.OPENAI_API_KEY),
+        ai: Boolean(resolveAiProvider()),
         email: Boolean(
           configuration.EMAIL_PROVIDER_URL &&
           configuration.EMAIL_PROVIDER_API_KEY,

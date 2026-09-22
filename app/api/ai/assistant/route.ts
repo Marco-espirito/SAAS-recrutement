@@ -1,8 +1,11 @@
-import OpenAI from 'openai';
 import { z } from 'zod';
 import { audit } from '@/lib/server/audit';
+import {
+  type AssistantTool,
+  resolveAiProvider,
+  runAssistant,
+} from '@/lib/server/ai';
 import { jsonValue, tenantTransaction } from '@/lib/server/db';
-import { env } from '@/lib/server/env';
 import {
   ApiError,
   handleApiError,
@@ -17,13 +20,11 @@ const assistantInput = z.object({
   allowExternalAI: z.literal(true),
 });
 
-const tools: OpenAI.Responses.Tool[] = [
+const tools: AssistantTool[] = [
   {
-    type: 'function',
     name: 'propose_create_tasks',
     description:
       'Proposer des tâches. Elles ne seront créées qu’après une seconde confirmation explicite.',
-    strict: true,
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -52,10 +53,10 @@ export async function POST(request: Request) {
     const session = await requireSession();
     const body = await readJson(request, assistantInput);
     await rateLimit(`ai:${session.id}`, 30, 3_600);
-    if (!env().OPENAI_API_KEY)
+    if (!resolveAiProvider())
       throw new ApiError(
         503,
-        'Nexora AI nécessite OPENAI_API_KEY côté serveur',
+        'Nexora AI nécessite OPENAI_API_KEY ou GEMINI_API_KEY côté serveur',
         'AI_NOT_CONFIGURED',
       );
 
@@ -82,14 +83,23 @@ export async function POST(request: Request) {
       },
     );
 
-    const client = new OpenAI({ apiKey: env().OPENAI_API_KEY });
-    const response = await client.responses.create({
-      model: env().OPENAI_MODEL,
+    const result = await runAssistant({
       instructions: `Tu es Nexora AI, assistant de recrutement en français. Tu reçois uniquement des indicateurs agrégés, jamais les fiches CRM brutes. Ne prétends jamais avoir envoyé un email ou modifié une donnée. Pour créer des tâches, utilise l’outil de proposition. Indicateurs: ${JSON.stringify(metrics)}`,
-      input: body.message,
+      message: body.message,
       tools,
-      tool_choice: 'auto',
-      max_output_tokens: 1_200,
+    }).catch((cause: unknown) => {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message: 'AI provider call failed',
+          error: cause instanceof Error ? cause.message : String(cause),
+        }),
+      );
+      throw new ApiError(
+        502,
+        'Fournisseur IA indisponible',
+        'AI_PROVIDER_ERROR',
+      );
     });
 
     const proposals: Array<{
@@ -97,34 +107,31 @@ export async function POST(request: Request) {
       toolName: string;
       arguments: unknown;
     }> = [];
-    for (const item of response.output) {
-      if (item.type !== 'function_call') continue;
-      if (item.name !== 'propose_create_tasks') continue;
-      const parsed = taskProposalSchema.safeParse(
-        JSON.parse(item.arguments) as unknown,
-      );
+    for (const call of result.toolCalls) {
+      if (call.name !== 'propose_create_tasks') continue;
+      const parsed = taskProposalSchema.safeParse(call.arguments);
       if (!parsed.success) continue;
       const args = parsed.data;
       const rows = await tenantTransaction(
         session.organizationId,
         (sql) => sql<Array<{ id: string }>>`
         insert into ai_action_proposals (organization_id, user_id, tool_name, arguments)
-        values (${session.organizationId}, ${session.id}, ${item.name}, ${sql.json(jsonValue(args))}) returning id`,
+        values (${session.organizationId}, ${session.id}, ${call.name}, ${sql.json(jsonValue(args))}) returning id`,
       );
-      proposals.push({ id: rows[0].id, toolName: item.name, arguments: args });
+      proposals.push({ id: rows[0].id, toolName: call.name, arguments: args });
     }
     await audit({
       organizationId: session.organizationId,
       actorId: session.id,
       action: 'ai.assistant.requested',
       entityType: 'ai_response',
-      entityId: response.id,
+      entityId: result.responseId,
       request,
       metadata: { proposalCount: proposals.length, contextMode: 'aggregate' },
     });
     return Response.json({
       answer:
-        response.output_text ||
+        result.text ||
         (proposals.length
           ? 'J’ai préparé ces actions. Confirmez-les pour les exécuter.'
           : 'Je n’ai pas trouvé assez de données pour répondre.'),
