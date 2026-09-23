@@ -2,7 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import type { ZodType } from 'zod';
 import { getSession, type Role, type SessionUser } from './auth';
-import { env } from './env';
+import { env, EnvironmentValidationError } from './env';
 
 export class ApiError extends Error {
   constructor(
@@ -36,7 +36,23 @@ export function assertSameOrigin(request: Request) {
   let expectedOrigin: string;
   try {
     expectedOrigin = new URL(env().APP_URL).origin;
-  } catch {
+  } catch (error) {
+    if (error instanceof EnvironmentValidationError) {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message: 'Invalid server configuration',
+          fields: error.fields,
+        }),
+      );
+      throw new ApiError(
+        500,
+        error.fields.includes('APP_URL')
+          ? 'Configuration APP_URL invalide'
+          : 'Configuration serveur invalide',
+        'CONFIG_ERROR',
+      );
+    }
     throw new ApiError(500, 'Configuration APP_URL invalide', 'CONFIG_ERROR');
   }
 
@@ -59,6 +75,24 @@ export function handleApiError(error: unknown) {
     return NextResponse.json(
       { error: { code: error.code, message: error.message } },
       { status: error.status },
+    );
+  }
+  if (error instanceof EnvironmentValidationError) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        message: 'Invalid server configuration',
+        fields: error.fields,
+      }),
+    );
+    return NextResponse.json(
+      {
+        error: {
+          code: 'CONFIG_ERROR',
+          message: 'Configuration serveur invalide',
+        },
+      },
+      { status: 500 },
     );
   }
   console.error(

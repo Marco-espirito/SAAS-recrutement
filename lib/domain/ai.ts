@@ -36,3 +36,27 @@ export const taskProposalSchema = z
   .strict();
 
 export type TaskProposal = z.infer<typeof taskProposalSchema>;
+
+export const stageProposalSchema = z
+  .object({
+    updates: z
+      .array(
+        z
+          .object({
+            applicationId: z.uuid(),
+            stage: z.enum([
+              'TO_APPLY',
+              'SENT',
+              'FOLLOW_UP',
+              'INTERVIEW',
+              'OFFER',
+              'REJECTED',
+              'PLACED',
+            ]),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(20),
+  })
+  .strict();

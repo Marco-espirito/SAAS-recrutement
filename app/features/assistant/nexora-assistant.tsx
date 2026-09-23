@@ -6,7 +6,11 @@ import * as I from 'lucide-react';
 type Proposal = {
   id: string;
   toolName: string;
-  arguments: { tasks?: Array<{ title: string; dueInDays: number }> };
+  arguments: {
+    tasks?: Array<{ title: string; dueInDays: number }>;
+    updates?: Array<{ applicationId: string; stage: string }>;
+  };
+  preview?: string[];
 };
 
 export function NexoraAssistantPanel({
@@ -69,7 +73,7 @@ export function NexoraAssistantPanel({
       method: 'POST',
     });
     const result = (await response.json()) as {
-      result: { created: number };
+      result: { created?: number; updated?: number };
       error?: { message?: string };
     };
     if (!response.ok) {
@@ -79,7 +83,7 @@ export function NexoraAssistantPanel({
     setProposals((items) => items.filter((item) => item.id !== id));
     setAnswer(
       (value) =>
-        `${value}\n\nAction confirmée : ${result.result.created} tâche(s) créée(s).`,
+        `${value}\n\nAction confirmée : ${result.result.created ?? 0} tâche(s) créée(s), ${result.result.updated ?? 0} candidature(s) modifiée(s).`,
     );
   }
 
@@ -92,7 +96,7 @@ export function NexoraAssistantPanel({
           </div>
           <span>
             <b>Ask Nexora</b>
-            <small>Assistant sécurisé · contexte agrégé</small>
+            <small>Assistant sécurisé · contexte autorisé</small>
           </span>
           <button aria-label="Fermer" onClick={onClose}>
             <I.X />
@@ -103,8 +107,9 @@ export function NexoraAssistantPanel({
             <I.Bot />
             <h2>Comment puis-je vous aider ?</h2>
             <p>
-              Nexora analyse uniquement des indicateurs agrégés. Les fiches CRM
-              brutes ne sont pas envoyées au modèle.
+              {mode === 'candidate'
+                ? 'Nexora analyse vos indicateurs agrégés.'
+                : 'Nexora peut analyser un extrait limité des fiches CRM récentes de votre organisation pour répondre à vos questions.'}
             </p>
           </div>
           {!answer && !pending && (
@@ -135,8 +140,18 @@ export function NexoraAssistantPanel({
               {proposals.map((proposal) => (
                 <div className="ai-proposal" key={proposal.id}>
                   <span>
-                    {proposal.arguments.tasks?.length ?? 0} tâche(s) proposée(s)
+                    {proposal.toolName === 'propose_create_tasks'
+                      ? `${proposal.arguments.tasks?.length ?? 0} tâche(s) proposée(s)`
+                      : `${proposal.arguments.updates?.length ?? 0} changement(s) de statut proposé(s)`}
                   </span>
+                  {proposal.arguments.tasks?.map((task, index) => (
+                    <p key={index}>
+                      {task.title} · dans {task.dueInDays} jour(s)
+                    </p>
+                  ))}
+                  {proposal.preview?.map((item, index) => (
+                    <p key={index}>{item}</p>
+                  ))}
                   <button
                     className="primary"
                     onClick={() => void confirm(proposal.id)}
@@ -161,8 +176,11 @@ export function NexoraAssistantPanel({
               onChange={(event) => setConsent(event.target.checked)}
             />
             <span>
-              J’autorise l’envoi de ma question et d’indicateurs anonymisés à
-              OpenAI.
+              J’autorise l’envoi de ma question et{' '}
+              {mode === 'candidate'
+                ? 'de mes indicateurs agrégés'
+                : 'd’un extrait limité du CRM'}{' '}
+              au fournisseur IA configuré.
             </span>
           </label>
           <div>

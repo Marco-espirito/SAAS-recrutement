@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAiProvider, taskProposalSchema } from '@/lib/domain/ai';
+import {
+  resolveAiProvider,
+  stageProposalSchema,
+  taskProposalSchema,
+} from '@/lib/domain/ai';
 
 describe('AI provider resolution', () => {
   it('is unconfigured when no key and no explicit provider are set', () => {
@@ -35,6 +39,27 @@ describe('AI provider resolution', () => {
 });
 
 describe('AI action validation', () => {
+  it('accepts only bounded application stage proposals', () => {
+    const valid = {
+      updates: [
+        {
+          applicationId: '123e4567-e89b-42d3-a456-426614174000',
+          stage: 'INTERVIEW',
+        },
+      ],
+    };
+    expect(stageProposalSchema.safeParse(valid).success).toBe(true);
+    expect(
+      stageProposalSchema.safeParse({
+        updates: [{ ...valid.updates[0], stage: 'DELETE' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      stageProposalSchema.safeParse({
+        updates: Array.from({ length: 21 }, () => valid.updates[0]),
+      }).success,
+    ).toBe(false);
+  });
   it('accepts a bounded task proposal', () => {
     expect(
       taskProposalSchema.safeParse({
