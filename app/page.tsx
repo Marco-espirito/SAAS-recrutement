@@ -18,6 +18,7 @@ import { SecurityPage, TeamPage } from './features/admin/team-security-page';
 import { useCurrentUser } from './features/auth/auth-gate';
 import { CandidateProfilePage } from './features/candidate/profile-page';
 import { LiveDashboard } from './features/dashboard/live-dashboard';
+import { NotificationBell } from './features/notifications/notification-bell';
 import { LiveRecruiterPage } from './features/recruiter/recruiter-pages';
 type Mode = 'candidate' | 'recruiter' | 'admin';
 const cNav = [
@@ -149,6 +150,7 @@ function Top({
             ? 'Espace recruteur'
             : 'Administration'}
       </span>
+      <NotificationBell />
       <div className="user">
         <i>{initials}</i>
         <span>

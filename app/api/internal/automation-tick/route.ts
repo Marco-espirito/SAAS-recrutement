@@ -1,4 +1,8 @@
 import { processNextAutomationRun } from '@/lib/server/automation-engine';
+import {
+  generateDigestNotifications,
+  generateReminderNotifications,
+} from '@/lib/server/notifications';
 import { processNextOAuthSync } from '@/lib/server/oauth-sync';
 import { runRetentionSweep } from '@/lib/server/retention';
 
@@ -24,7 +28,16 @@ export async function GET(request: Request) {
       synced++;
     }
     const retention = await runRetentionSweep();
-    return Response.json({ ok: true, processed, synced, retention });
+    const reminders = await generateReminderNotifications();
+    const digests = await generateDigestNotifications();
+    return Response.json({
+      ok: true,
+      processed,
+      synced,
+      retention,
+      reminders,
+      digests,
+    });
   } catch (error) {
     console.error(
       JSON.stringify({

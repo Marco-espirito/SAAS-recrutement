@@ -296,6 +296,28 @@
 .settings-card p {
   color: var(--muted);
 }
+.notification-preferences {
+  grid-column: span 2;
+}
+.notification-preference-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.notification-preference-row b {
+  flex: 1 1 220px;
+  font-weight: 600;
+}
+.notification-preference-row label {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+  text-transform: none;
+}
 .mfa-secret {
   padding: 10px;
   border-radius: 7px;

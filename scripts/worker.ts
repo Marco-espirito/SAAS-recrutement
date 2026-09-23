@@ -1,5 +1,9 @@
 import { processNextAutomationRun } from '../lib/server/automation-engine';
 import { db } from '../lib/server/db';
+import {
+  generateDigestNotifications,
+  generateReminderNotifications,
+} from '../lib/server/notifications';
 import { processNextOAuthSync } from '../lib/server/oauth-sync';
 import { runRetentionSweep } from '../lib/server/retention';
 
@@ -18,6 +22,7 @@ async function main() {
   let lastCleanup = 0;
   let lastOAuthSync = 0;
   let lastRetentionSweep = 0;
+  let lastReminderSweep = 0;
   const stop = () => {
     stopping = true;
   };
@@ -49,7 +54,28 @@ async function main() {
             ...result,
           }),
         );
+        const digests = await generateDigestNotifications();
+        console.log(
+          JSON.stringify({
+            level: 'info',
+            service: 'automation-worker',
+            message: 'Digest sweep completed',
+            ...digests,
+          }),
+        );
         lastRetentionSweep = Date.now();
+      }
+      if (Date.now() - lastReminderSweep > 15 * 60 * 1000) {
+        const reminders = await generateReminderNotifications();
+        console.log(
+          JSON.stringify({
+            level: 'info',
+            service: 'automation-worker',
+            message: 'Reminder sweep completed',
+            ...reminders,
+          }),
+        );
+        lastReminderSweep = Date.now();
       }
       if (!processed) await pause(2_000);
     } catch (error) {

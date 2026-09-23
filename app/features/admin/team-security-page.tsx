@@ -4,6 +4,35 @@ import { useEffect, useState, type SyntheticEvent } from 'react';
 import * as I from 'lucide-react';
 import { useCurrentUser } from '../auth/auth-gate';
 
+type NotificationCategory =
+  | 'REMINDERS'
+  | 'PIPELINE'
+  | 'MENTIONS'
+  | 'DIGEST'
+  | 'SYSTEM';
+type DigestFrequency = 'NEVER' | 'DAILY' | 'WEEKLY';
+type NotificationPreference = {
+  category: NotificationCategory;
+  inAppEnabled: boolean;
+  emailEnabled: boolean;
+  digestFrequency: DigestFrequency;
+};
+const categoryLabels: Record<NotificationCategory, string> = {
+  REMINDERS: 'Rappels (tâches, entretiens)',
+  PIPELINE: 'Pipeline (changements de statut)',
+  MENTIONS: 'Mentions et commentaires',
+  DIGEST: 'Résumé périodique',
+  SYSTEM: 'Système et sécurité',
+};
+const defaultPreference = (
+  category: NotificationCategory,
+): NotificationPreference => ({
+  category,
+  inAppEnabled: true,
+  emailEnabled: false,
+  digestFrequency: 'NEVER',
+});
+
 type Member = {
   id: string;
   name: string;
@@ -218,6 +247,43 @@ export function SecurityPage({ toast }: { toast: (message: string) => void }) {
   const user = useCurrentUser();
   const [secret, setSecret] = useState('');
   const [error, setError] = useState('');
+  const [preferences, setPreferences] = useState<NotificationPreference[]>(
+    (['REMINDERS', 'PIPELINE', 'MENTIONS', 'DIGEST', 'SYSTEM'] as const).map(
+      defaultPreference,
+    ),
+  );
+  useEffect(() => {
+    void request('/api/notifications/preferences')
+      .then((result: { preferences: NotificationPreference[] }) => {
+        setPreferences((current) =>
+          current.map(
+            (row) =>
+              result.preferences.find((p) => p.category === row.category) ??
+              row,
+          ),
+        );
+      })
+      .catch(() => undefined);
+  }, []);
+  async function savePreference(preference: NotificationPreference) {
+    setPreferences((current) =>
+      current.map((row) =>
+        row.category === preference.category ? preference : row,
+      ),
+    );
+    try {
+      await request('/api/notifications/preferences', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(preference),
+      });
+      toast('Préférences de notification mises à jour');
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Enregistrement impossible',
+      );
+    }
+  }
   async function deleteAccount() {
     if (
       !window.confirm(
@@ -382,6 +448,60 @@ export function SecurityPage({ toast }: { toast: (message: string) => void }) {
           >
             Invalider toutes les sessions
           </button>
+        </section>
+        <section className="panel settings-card notification-preferences">
+          <I.Bell />
+          <h3>Préférences de notification</h3>
+          <p>Choisissez ce que vous recevez en application et par e-mail.</p>
+          {preferences.map((preference) => (
+            <div
+              className="notification-preference-row"
+              key={preference.category}
+            >
+              <b>{categoryLabels[preference.category]}</b>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={preference.inAppEnabled}
+                  onChange={(event) =>
+                    void savePreference({
+                      ...preference,
+                      inAppEnabled: event.target.checked,
+                    })
+                  }
+                />
+                Application
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={preference.emailEnabled}
+                  onChange={(event) =>
+                    void savePreference({
+                      ...preference,
+                      emailEnabled: event.target.checked,
+                    })
+                  }
+                />
+                E-mail
+              </label>
+              {preference.category === 'DIGEST' && (
+                <select
+                  value={preference.digestFrequency}
+                  onChange={(event) =>
+                    void savePreference({
+                      ...preference,
+                      digestFrequency: event.target.value as DigestFrequency,
+                    })
+                  }
+                >
+                  <option value="NEVER">Jamais</option>
+                  <option value="DAILY">Quotidien</option>
+                  <option value="WEEKLY">Hebdomadaire</option>
+                </select>
+              )}
+            </div>
+          ))}
         </section>
         <section className="panel settings-card">
           <I.Download />
