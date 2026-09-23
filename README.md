@@ -84,6 +84,8 @@ Les contrats des adaptateurs d’offres, d’e-mail et de calendrier sont décri
 
 Les flux OAuth Google, Microsoft (Outlook, calendrier et Teams) et Slack sont implémentés, mais **désactivés tant que les applications fournisseur et leurs secrets ne sont pas configurés**. Les e-mails et événements entrants sont synchronisés par curseurs ; l'envoi d'e-mails, la création d'événements et les notifications sortantes exigent un clic explicite. Il ne s'agit pas encore d'une réplication temps réel ni d'une édition/suppression bidirectionnelle complète. Voir [docs/OAUTH_SETUP.md](docs/OAUTH_SETUP.md) pour les URL de rappel, permissions, variables et limites. Les anciens adaptateurs génériques restent distincts des connexions OAuth.
 
+La facturation Stripe (essai de 14 jours, plans, quotas, portail client) est implémentée et testée, mais **désactivée tant que les produits Stripe et leurs identifiants ne sont pas configurés** — le plan Gratuit reste pleinement fonctionnel sans Stripe. Voir [docs/BILLING.md](docs/BILLING.md).
+
 ## Architecture
 
 Le détail des composants et des flux est décrit dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

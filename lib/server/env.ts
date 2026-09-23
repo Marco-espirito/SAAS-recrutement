@@ -45,6 +45,10 @@ const schema = z.object({
     .default('organizations'),
   SLACK_OAUTH_CLIENT_ID: optionalSecret,
   SLACK_OAUTH_CLIENT_SECRET: optionalSecret,
+  STRIPE_SECRET_KEY: optionalSecret,
+  STRIPE_WEBHOOK_SECRET: optionalSecret,
+  STRIPE_PRICE_STARTER: optionalSecret,
+  STRIPE_PRICE_PRO: optionalSecret,
 });
 
 let cached: z.infer<typeof schema> | undefined;

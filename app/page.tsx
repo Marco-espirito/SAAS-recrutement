@@ -52,6 +52,7 @@ const aNav = [
   [I.ScrollText, 'Journal d’audit'],
   [I.PlugZap, 'Intégrations'],
   [I.HeartPulse, 'Santé'],
+  [I.CreditCard, 'Facturation'],
 ];
 function Sidebar({
   mode,

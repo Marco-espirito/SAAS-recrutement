@@ -1,4 +1,5 @@
 import { processNextAutomationRun } from '@/lib/server/automation-engine';
+import { expireBillingTrials } from '@/lib/server/billing';
 import {
   generateDigestNotifications,
   generateReminderNotifications,
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
     const retention = await runRetentionSweep();
     const reminders = await generateReminderNotifications();
     const digests = await generateDigestNotifications();
+    const trials = await expireBillingTrials();
     await recordHeartbeat(SERVICE, 'OK', undefined, { processed, synced });
     return Response.json({
       ok: true,
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
       retention,
       reminders,
       digests,
+      trials,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

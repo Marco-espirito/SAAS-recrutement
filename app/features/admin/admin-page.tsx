@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import * as I from 'lucide-react';
+import { BillingPanel } from './billing-page';
 import { OAuthConnectionsPanel } from './oauth-connections';
 
 type HealthData = {
@@ -214,6 +215,7 @@ export function LiveAdminPage({ tab }: { tab: string }) {
   }, []);
 
   if (tab === 'Santé') return <HealthPanel />;
+  if (tab === 'Facturation') return <BillingPanel />;
   if (error) return <div className="auth-alert">{error}</div>;
   if (!data)
     return (

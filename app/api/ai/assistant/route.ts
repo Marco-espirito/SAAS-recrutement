@@ -14,6 +14,7 @@ import {
 } from '@/lib/server/http';
 import { rateLimit } from '@/lib/server/rate-limit';
 import { stageProposalSchema, taskProposalSchema } from '@/lib/domain/ai';
+import { assertAiQuotaAvailable, recordAiUsage } from '@/lib/server/billing';
 
 const assistantInput = z.object({
   message: z.string().trim().min(2).max(4_000),
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
         'Nexora AI nécessite OPENAI_API_KEY ou GEMINI_API_KEY côté serveur',
         'AI_NOT_CONFIGURED',
       );
+    await assertAiQuotaAvailable(session.organizationId);
 
     const metrics = await tenantTransaction(
       session.organizationId,
@@ -210,6 +212,11 @@ export async function POST(request: Request) {
         'AI_PROVIDER_ERROR',
       );
     });
+    await recordAiUsage(
+      session.organizationId,
+      session.id,
+      resolveAiProvider() ?? 'unknown',
+    );
 
     const proposals: Array<{
       id: string;

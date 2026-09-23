@@ -1,4 +1,5 @@
 import { processNextAutomationRun } from '../lib/server/automation-engine';
+import { expireBillingTrials } from '../lib/server/billing';
 import { db } from '../lib/server/db';
 import {
   generateDigestNotifications,
@@ -65,6 +66,15 @@ async function main() {
             service: 'automation-worker',
             message: 'Digest sweep completed',
             ...digests,
+          }),
+        );
+        const trials = await expireBillingTrials();
+        console.log(
+          JSON.stringify({
+            level: 'info',
+            service: 'automation-worker',
+            message: 'Trial expiry sweep completed',
+            ...trials,
           }),
         );
         lastRetentionSweep = Date.now();
