@@ -60,6 +60,13 @@ services:
       # Valeur de développement uniquement : fournissez une clé aléatoire en production.
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-bmV4b3JhLWRldmVsb3BtZW50LWtleS0zMi1ieXRlcyE=}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+      MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_TENANT: ${MICROSOFT_OAUTH_TENANT:-organizations}
+      SLACK_OAUTH_CLIENT_ID: ${SLACK_OAUTH_CLIENT_ID:-}
+      SLACK_OAUTH_CLIENT_SECRET: ${SLACK_OAUTH_CLIENT_SECRET:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -85,6 +92,15 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nexora}:${POSTGRES_PASSWORD:-nexora_local_change_me}@postgres:5432/${POSTGRES_DB:-nexora}
+      APP_URL: http://localhost:${NEXORA_PORT:-3000}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-bmV4b3JhLWRldmVsb3BtZW50LWtleS0zMi1ieXRlcyE=}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+      MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_TENANT: ${MICROSOFT_OAUTH_TENANT:-organizations}
+      SLACK_OAUTH_CLIENT_ID: ${SLACK_OAUTH_CLIENT_ID:-}
+      SLACK_OAUTH_CLIENT_SECRET: ${SLACK_OAUTH_CLIENT_SECRET:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

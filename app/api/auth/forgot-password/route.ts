@@ -1,15 +1,24 @@
 import { z } from 'zod';
 import { db } from '@/lib/server/db';
-import { handleApiError, readJson } from '@/lib/server/http';
+import { ApiError, handleApiError, readJson } from '@/lib/server/http';
 import { rateLimit } from '@/lib/server/rate-limit';
 import { createSessionToken, hashToken } from '@/lib/server/security';
-import { sendSystemEmail } from '@/lib/server/email';
+import { emailProviderConfigured, sendSystemEmail } from '@/lib/server/email';
 import { env } from '@/lib/server/env';
 
 const input = z.object({ email: z.email().trim().max(254) }).strict();
 
 export async function POST(request: Request) {
   try {
+    if (
+      !emailProviderConfigured() &&
+      !['localhost', '127.0.0.1'].includes(new URL(env().APP_URL).hostname)
+    )
+      throw new ApiError(
+        503,
+        'Réinitialisation indisponible : envoi d’e-mails non configuré',
+        'EMAIL_PROVIDER_REQUIRED',
+      );
     const body = await readJson(request, input);
     await rateLimit(`password-reset:${body.email.toLowerCase()}`, 5, 3_600);
     const users = await db()<Array<{ id: string }>>`
