@@ -3,6 +3,7 @@ import { normalizeToken } from './offers';
 export type CandidateMatchProfile = {
   skills: string[];
   experienceSkills?: string[];
+  cvSkills?: string[];
   desiredLocations?: string[];
   remotePreference?: 'ONSITE' | 'HYBRID' | 'REMOTE' | 'FLEXIBLE';
   salaryMin?: number | null;
@@ -102,7 +103,7 @@ function scoreSkills(
         weight: 60,
         score: 50,
         detail:
-          'Profil sans compétences déclarées : complétez votre CV pour une analyse fiable.',
+          'Aucune compétence structurée ou détectée dans le CV principal : complétez votre profil ou analysez votre CV.',
       },
       matchedSkills: [],
       missingSkills: [],
@@ -117,7 +118,7 @@ function scoreSkills(
     .map((skill) => ({
       skill,
       evidence:
-        'Absente des compétences déclarées et des expériences du profil candidat.',
+        'Absente des compétences déclarées, des expériences et de la dernière analyse ATS du CV principal.',
     }));
   const coverage = Math.round(
     (matchedSkills.length / uniqueOfferSkills.length) * 100,
@@ -237,7 +238,11 @@ export function scoreCandidateOffer(
   offer: OfferMatchInput,
 ): MatchResult {
   const candidateSkillSet = new Set(
-    [...candidate.skills, ...(candidate.experienceSkills ?? [])]
+    [
+      ...candidate.skills,
+      ...(candidate.experienceSkills ?? []),
+      ...(candidate.cvSkills ?? []),
+    ]
       .map((skill) => normalizeToken(skill))
       .filter(Boolean),
   );

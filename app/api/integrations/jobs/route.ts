@@ -162,9 +162,14 @@ export async function GET(request: Request) {
           and expires_at is not null and expires_at <= now()`;
 
         const profile = await sql<
-          Array<{ id: string } & CandidateMatchProfile>
+          Array<
+            {
+              id: string;
+              primaryDocumentId: string | null;
+            } & CandidateMatchProfile
+          >
         >`
-        select id, skills, desired_locations as "desiredLocations",
+        select id, primary_document_id as "primaryDocumentId", skills, desired_locations as "desiredLocations",
           remote_preference as "remotePreference", salary_min as "salaryMin", salary_max as "salaryMax"
         from candidate_profiles
         where organization_id = ${session.organizationId} and user_id = ${session.id}`;
@@ -184,9 +189,17 @@ export async function GET(request: Request) {
           const experienceSkills = await sql<Array<{ skill: string }>>`
           select distinct skill from candidate_experiences, unnest(skills) as skill
           where organization_id = ${session.organizationId} and profile_id = ${profile[0].id}`;
+          const cvAnalysis = profile[0].primaryDocumentId
+            ? await sql<Array<{ detectedKeywords: string[] }>>`
+              select detected_keywords as "detectedKeywords" from candidate_ats_analyses
+              where organization_id = ${session.organizationId} and user_id = ${session.id}
+                and document_id = ${profile[0].primaryDocumentId}
+              order by created_at desc limit 1`
+            : [];
           const candidate: CandidateMatchProfile = {
             skills: profile[0].skills,
             experienceSkills: experienceSkills.map((row) => row.skill),
+            cvSkills: cvAnalysis[0]?.detectedKeywords ?? [],
             desiredLocations: profile[0].desiredLocations,
             remotePreference: profile[0].remotePreference,
             salaryMin: profile[0].salaryMin,

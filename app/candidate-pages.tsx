@@ -28,6 +28,7 @@ type Job = {
   missingSkills?: MissingSkill[];
   matchedSkills?: string[];
   feedback?: 'RELEVANT' | 'NOT_RELEVANT' | 'APPLIED';
+  status?: 'ACTIVE' | 'EXPIRED' | 'REMOVED';
 };
 const Btn = ({
   children,
@@ -69,6 +70,7 @@ export function JobsPage({ toast }: { toast: Toast }) {
   const [onlySaved, setOnlySaved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [archive, setArchive] = useState(false);
   const filtered = jobs.filter(
     (j) =>
       (j.title + j.company + j.skills.join(' '))
@@ -101,11 +103,35 @@ export function JobsPage({ toast }: { toast: Toast }) {
           result.error?.message ?? 'La recherche d’offres a échoué',
         );
       setJobs(result.jobs ?? []);
+      setArchive(false);
       toast(`${result.jobs?.length ?? 0} offres trouvées`);
     } catch (cause) {
       setJobs([]);
       setError(
         cause instanceof Error ? cause.message : 'Recherche indisponible',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function loadArchive() {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/offers');
+      const result = (await response.json()) as {
+        jobs?: Job[];
+        error?: { message?: string };
+      };
+      if (!response.ok)
+        throw new Error(result.error?.message ?? 'Archives indisponibles');
+      setJobs(result.jobs ?? []);
+      setArchive(true);
+      setQuery('');
+      setLocation('');
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Archives indisponibles',
       );
     } finally {
       setLoading(false);
@@ -155,8 +181,9 @@ export function JobsPage({ toast }: { toast: Toast }) {
           />
         </label>
         <Btn onClick={() => setOnlySaved(!onlySaved)}>
-          {onlySaved ? 'Tous les résultats' : 'Mes favoris'}
+          {onlySaved ? 'Tous les résultats' : 'Favoris de cette session'}
         </Btn>
+        <Btn onClick={() => void loadArchive()}>Offres conservées</Btn>
         <Btn primary onClick={() => void search()}>
           <I.Search />
           {loading ? 'Recherche…' : 'Rechercher'}
@@ -189,7 +216,11 @@ export function JobsPage({ toast }: { toast: Toast }) {
           <header>
             <b>{filtered.length} offres trouvées</b>
             <span>{location || 'Toutes localisations'}</span>
-            <small>Résultats fournis en temps réel</small>
+            <small>
+              {archive
+                ? 'Copies conservées dans Nexora'
+                : 'Résultats fournis en temps réel'}
+            </small>
           </header>
           {filtered.map((j, n) => (
             <article className="offer-row" key={j.id}>
@@ -199,6 +230,12 @@ export function JobsPage({ toast }: { toast: Toast }) {
               </div>
               <div className="offer-role">
                 <b>{j.title}</b>
+                {j.status && j.status !== 'ACTIVE' && (
+                  <small>
+                    Offre {j.status === 'EXPIRED' ? 'expirée' : 'retirée'} —
+                    copie conservée
+                  </small>
+                )}
                 <small>⌖ {j.location}</small>
                 <p>
                   {j.skills.map((s) => (
@@ -256,6 +293,54 @@ export function MatchingPage({ toast }: { toast: Toast }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [letter, setLetter] = useState('');
+  const [quality, setQuality] = useState<{
+    totalMatches: number;
+    feedbackCount: number;
+    relevanceRate: number | null;
+  } | null>(null);
+
+  async function loadSavedMatches() {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/candidate/matches');
+      const result = (await response.json()) as {
+        matches?: Array<
+          Job & {
+            offerId: string;
+            score: number;
+            offerStatus: Job['status'];
+            breakdown: MatchCriterion[];
+          }
+        >;
+        quality?: {
+          totalMatches: number;
+          feedbackCount: number;
+          relevanceRate: number | null;
+        };
+        error?: { message?: string };
+      };
+      if (!response.ok)
+        throw new Error(result.error?.message ?? 'Historique indisponible');
+      const saved = (result.matches ?? []).map((match) => ({
+        ...match,
+        id: match.offerId,
+        matchId: String(match.id),
+        match: match.score,
+        matchBreakdown: match.breakdown,
+        status: match.offerStatus,
+      }));
+      setJobs(saved);
+      setSelected(saved[0] ?? null);
+      setQuality(result.quality ?? null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Historique indisponible',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function refresh() {
     if (query.trim().length < 2) {
@@ -351,6 +436,9 @@ export function MatchingPage({ toast }: { toast: Toast }) {
           <I.RefreshCw />
           {loading ? 'Analyse…' : 'Actualiser'}
         </Btn>
+        <Btn onClick={() => void loadSavedMatches()}>
+          Correspondances conservées
+        </Btn>
       </PageHead>
       <section className="job-search panel">
         <label>
@@ -371,6 +459,15 @@ export function MatchingPage({ toast }: { toast: Toast }) {
           <I.Search /> Rechercher et classer
         </Btn>
       </section>
+      {quality && (
+        <p className="panel" style={{ padding: 16 }}>
+          Qualité des recommandations : {quality.totalMatches}{' '}
+          correspondance(s), {quality.feedbackCount} avis reçu(s)
+          {quality.relevanceRate === null
+            ? ' — pas encore assez de retours.'
+            : ` — ${quality.relevanceRate}% jugées pertinentes parmi les avis reçus.`}
+        </p>
+      )}
       <div className="matching-layout">
         <section className="panel match-list">
           <header>

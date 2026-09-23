@@ -87,6 +87,28 @@ describe('candidate/offer matching', () => {
     expect(result.dataComplete).toBe(true);
   });
 
+  it('credits structured skills extracted from the primary CV analysis', () => {
+    const result = scoreCandidateOffer(
+      {
+        skills: [],
+        experienceSkills: [],
+        cvSkills: ['SQL'],
+        desiredLocations: [],
+      },
+      {
+        title: 'Data Analyst',
+        skills: ['SQL', 'Python'],
+        location: null,
+        salary: null,
+      },
+    );
+    expect(result.matchedSkills).toEqual(['SQL']);
+    expect(result.missingSkills).toEqual([
+      { skill: 'Python', evidence: expect.stringContaining('CV principal') },
+    ]);
+    expect(result.dataComplete).toBe(true);
+  });
+
   it('rewards a location matching the candidate desired locations', () => {
     const result = scoreCandidateOffer(
       { skills: [], desiredLocations: ['Lyon, France'] },
