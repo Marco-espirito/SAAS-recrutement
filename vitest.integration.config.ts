@@ -8,13 +8,17 @@ export default defineConfig({
       'server-only': fileURLToPath(
         new URL('./tests/server-only.ts', import.meta.url),
       ),
+      'next/headers': fileURLToPath(
+        new URL('./tests/next-headers.ts', import.meta.url),
+      ),
     },
   },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
-    // Integration tests need a real, migrated PostgreSQL reachable via the
-    // app role — they have their own config and npm script (test:integration).
-    exclude: ['tests/integration/**'],
+    include: ['tests/integration/**/*.test.ts'],
+    // Integration tests share one real Postgres database; running files
+    // concurrently risks unrelated tests racing on the same tables.
+    fileParallelism: false,
+    testTimeout: 20_000,
   },
 });

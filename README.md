@@ -70,6 +70,8 @@ npm audit
 node scripts/smoke-identity.mjs
 ```
 
+Tests API contre une vraie PostgreSQL (`npm run test:integration`), bout en bout/accessibilité/mobile (`npm run test:e2e`, Playwright) et de charge (`npm run test:load`, k6, jamais automatisé) : voir [docs/TESTING.md](docs/TESTING.md).
+
 Les migrations sont ordonnées par nom, exécutées dans une transaction, enregistrées dans `schema_migrations` et protégées par checksum. Ne jamais modifier une migration déjà appliquée : ajouter un nouveau fichier numéroté.
 
 ## Sécurité et production

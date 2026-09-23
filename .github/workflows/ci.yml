@@ -24,6 +24,85 @@ jobs:
       - run: npm run build
       - run: npm audit --audit-level=high
 
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations and provision the runtime app role
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nexora_test
+          POSTGRES_APP_USER: nexora_app_test
+          POSTGRES_APP_PASSWORD: nexora_app_test_password
+      - name: Run API tests against real PostgreSQL (RLS enforced via the app role)
+        run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://nexora_app_test:nexora_app_test_password@localhost:5432/nexora_test
+          APP_URL: http://localhost:3000
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Apply migrations and provision the runtime app role
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nexora_test
+          POSTGRES_APP_USER: nexora_app_test
+          POSTGRES_APP_PASSWORD: nexora_app_test_password
+      - name: Run Playwright (E2E, accessibility, mobile viewport)
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://nexora_app_test:nexora_app_test_password@localhost:5432/nexora_test
+          APP_URL: http://localhost:3100
+          CI: true
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
   docker-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
