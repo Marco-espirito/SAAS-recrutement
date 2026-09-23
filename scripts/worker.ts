@@ -1,5 +1,6 @@
 import { processNextAutomationRun } from '../lib/server/automation-engine';
 import { db } from '../lib/server/db';
+import { processNextOAuthSync } from '../lib/server/oauth-sync';
 
 const pause = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -14,6 +15,7 @@ async function main() {
   );
   let stopping = false;
   let lastCleanup = 0;
+  let lastOAuthSync = 0;
   const stop = () => {
     stopping = true;
   };
@@ -23,6 +25,10 @@ async function main() {
   while (!stopping) {
     try {
       const processed = await processNextAutomationRun();
+      if (Date.now() - lastOAuthSync > 60_000) {
+        await processNextOAuthSync();
+        lastOAuthSync = Date.now();
+      }
       if (Date.now() - lastCleanup > 60 * 60 * 1000) {
         await db()`delete from sessions where expires_at < now()`;
         await db()`delete from api_rate_limits where reset_at < now() - interval '24 hours'`;

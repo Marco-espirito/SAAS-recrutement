@@ -21,6 +21,21 @@ export async function GET() {
           configuration.CALENDAR_PROVIDER_URL &&
           configuration.CALENDAR_PROVIDER_API_KEY,
         ),
+        googleOAuth: Boolean(
+          configuration.GOOGLE_OAUTH_CLIENT_ID &&
+          configuration.GOOGLE_OAUTH_CLIENT_SECRET &&
+          configuration.APP_ENCRYPTION_KEY,
+        ),
+        microsoftOAuth: Boolean(
+          configuration.MICROSOFT_OAUTH_CLIENT_ID &&
+          configuration.MICROSOFT_OAUTH_CLIENT_SECRET &&
+          configuration.APP_ENCRYPTION_KEY,
+        ),
+        slackOAuth: Boolean(
+          configuration.SLACK_OAUTH_CLIENT_ID &&
+          configuration.SLACK_OAUTH_CLIENT_SECRET &&
+          configuration.APP_ENCRYPTION_KEY,
+        ),
       },
     });
   } catch (error) {

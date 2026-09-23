@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import * as I from 'lucide-react';
+import { OAuthConnectionsPanel } from './oauth-connections';
 
 type AdminData = {
   overview: {
@@ -120,6 +121,7 @@ export function LiveAdminPage({ tab }: { tab: string }) {
             </article>
           ))}
         </section>
+        <OAuthConnectionsPanel />
       </div>
     );
 
