@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import * as I from 'lucide-react';
+import { AutomationBuilder } from './automation-builder';
 
 type Automation = {
   id: string;
@@ -52,38 +53,6 @@ export function LiveAutomationsPage({
     };
   }, []);
 
-  async function createFollowup() {
-    const response = await fetch('/api/automations', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Relance après 7 jours',
-        triggerType: 'APPLICATION_STAGE_CHANGED',
-        delayDays: 7,
-        conditions: [{ field: 'stage', operator: 'equals', value: 'SENT' }],
-        actions: [
-          {
-            type: 'CREATE_EMAIL_DRAFT',
-            title: 'Relance candidature',
-            body: 'Préparer une relance personnalisée.',
-          },
-          {
-            type: 'CREATE_TASK',
-            title: 'Vérifier et envoyer la relance',
-            dueInDays: 0,
-          },
-        ],
-      }),
-    });
-    const result = (await response.json()) as { error?: { message?: string } };
-    if (!response.ok) {
-      setError(result.error?.message ?? 'Création impossible');
-      return;
-    }
-    await refresh();
-    toast('Workflow de relance activé');
-  }
-
   async function toggleFlow(flow: Automation) {
     const response = await fetch(`/api/automations/${flow.id}`, {
       method: 'PATCH',
@@ -109,15 +78,9 @@ export function LiveAutomationsPage({
             Déclencheurs, délais, actions et journal d’exécution persistants.
           </p>
         </div>
-        <button
-          className="action primary"
-          onClick={() => void createFollowup()}
-        >
-          <I.Plus />
-          Créer la relance 7 jours
-        </button>
       </div>
       {error && <div className="auth-alert">{error}</div>}
+      <AutomationBuilder onCreated={() => void refresh()} toast={toast} />
       <section className="automation-hero">
         <I.Zap />
         <div>

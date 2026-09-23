@@ -1,55 +1,7 @@
-import { z } from 'zod';
+import { automationInput } from '@/lib/domain/automation-schema';
 import { audit } from '@/lib/server/audit';
 import { jsonValue, tenantTransaction } from '@/lib/server/db';
 import { handleApiError, readJson, requireSession } from '@/lib/server/http';
-
-const actionSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('CREATE_TASK'),
-    title: z.string().min(1).max(200),
-    body: z.string().max(5_000).optional(),
-    dueInDays: z.number().int().min(0).max(365).default(0),
-  }),
-  z.object({
-    type: z.literal('CREATE_EMAIL_DRAFT'),
-    title: z.string().min(1).max(200),
-    body: z.string().max(10_000),
-  }),
-  z.object({
-    type: z.literal('UPDATE_APPLICATION_STAGE'),
-    stage: z.enum([
-      'TO_APPLY',
-      'SENT',
-      'FOLLOW_UP',
-      'INTERVIEW',
-      'OFFER',
-      'REJECTED',
-      'PLACED',
-    ]),
-  }),
-]);
-const automationInput = z.object({
-  name: z.string().trim().min(2).max(160),
-  enabled: z.boolean().default(true),
-  triggerType: z.enum([
-    'APPLICATION_CREATED',
-    'APPLICATION_STAGE_CHANGED',
-    'APPLICATION_NO_RESPONSE',
-    'JOB_MATCHED',
-  ]),
-  delayDays: z.number().int().min(0).max(365).default(0),
-  conditions: z
-    .array(
-      z.object({
-        field: z.string().trim().min(1).max(200),
-        operator: z.enum(['equals', 'not_equals', 'greater_than', 'contains']),
-        value: z.union([z.string(), z.number(), z.boolean()]),
-      }),
-    )
-    .max(20)
-    .default([]),
-  actions: z.array(actionSchema).min(1).max(20),
-});
 
 export async function GET() {
   try {

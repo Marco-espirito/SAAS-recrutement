@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { automationPreviewInput } from '@/lib/domain/automation-schema';
 import {
   calculateAvailableAt,
   matchesConditions,
+  isAutomationCondition,
   retryDelayMinutes,
 } from '@/lib/domain/automation';
 
@@ -28,6 +30,61 @@ describe('automation conditions', () => {
         ],
         { stage: 'INTERVIEW', answered: false },
       ),
+    ).toBe(false);
+  });
+
+  it('supports nested AND/OR groups and validates their shape', () => {
+    const tree = {
+      operator: 'any' as const,
+      conditions: [
+        { field: 'stage', operator: 'equals' as const, value: 'SENT' },
+        {
+          operator: 'all' as const,
+          conditions: [
+            { field: 'stage', operator: 'equals' as const, value: 'INTERVIEW' },
+            { field: 'answered', operator: 'equals' as const, value: false },
+          ],
+        },
+      ],
+    };
+    expect(isAutomationCondition(tree)).toBe(true);
+    expect(
+      matchesConditions([tree], { stage: 'INTERVIEW', answered: false }),
+    ).toBe(true);
+    expect(
+      matchesConditions([tree], { stage: 'INTERVIEW', answered: true }),
+    ).toBe(false);
+    expect(isAutomationCondition({ operator: 'any', conditions: [] })).toBe(
+      false,
+    );
+  });
+
+  it('rejects an invalid preview before any workflow can be saved', () => {
+    const valid = {
+      name: 'Relance',
+      triggerType: 'APPLICATION_STAGE_CHANGED',
+      delayDays: 7,
+      conditions: [
+        {
+          operator: 'any',
+          conditions: [{ field: 'stage', operator: 'equals', value: 'SENT' }],
+        },
+      ],
+      actions: [{ type: 'CREATE_TASK', title: 'Relancer', dueInDays: 0 }],
+      payload: { stage: 'SENT' },
+    };
+    expect(automationPreviewInput.safeParse(valid).success).toBe(true);
+    expect(
+      automationPreviewInput.safeParse({
+        ...valid,
+        conditions: [{ operator: 'any', conditions: [] }],
+      }).success,
+    ).toBe(false);
+    expect(
+      automationPreviewInput.safeParse({
+        ...valid,
+        actions: [{ type: 'SEND_EMAIL', title: 'Relancer' }],
+      }).success,
     ).toBe(false);
   });
 

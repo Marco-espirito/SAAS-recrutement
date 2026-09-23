@@ -59,7 +59,7 @@ export async function processNextAutomationRun() {
       where (
         (r.status = 'QUEUED' and r.available_at <= now())
         or (r.status = 'RUNNING' and r.locked_at < now() - interval '15 minutes')
-      ) and r.attempts < 3
+      ) and r.attempts < 3 and a.enabled = true
       order by r.available_at asc for update skip locked limit 1`;
     const run = rows[0];
     if (!run) return null;

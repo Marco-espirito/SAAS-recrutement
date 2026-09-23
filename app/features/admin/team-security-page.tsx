@@ -102,6 +102,21 @@ export function TeamPage({ toast }: { toast: (message: string) => void }) {
       );
     }
   }
+  async function revokeInvitation(invitation: Invitation) {
+    if (!window.confirm(`Annuler l’invitation de ${invitation.email} ?`))
+      return;
+    try {
+      await request(`/api/organization/invitations/${invitation.id}`, {
+        method: 'DELETE',
+      });
+      toast('Invitation annulée');
+      load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Annulation impossible',
+      );
+    }
+  }
   return (
     <div>
       <div className="module-head">
@@ -182,6 +197,16 @@ export function TeamPage({ toast }: { toast: (message: string) => void }) {
             <time>
               {new Date(invitation.expiresAt).toLocaleDateString('fr-FR')}
             </time>
+            {!invitation.acceptedAt &&
+              !invitation.revokedAt &&
+              new Date(invitation.expiresAt) > new Date() && (
+                <button
+                  className="action danger"
+                  onClick={() => void revokeInvitation(invitation)}
+                >
+                  Annuler
+                </button>
+              )}
           </article>
         ))}
       </section>

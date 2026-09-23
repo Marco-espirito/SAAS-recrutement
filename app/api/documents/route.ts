@@ -40,6 +40,9 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const file = form.get('file');
     const applicationId = form.get('applicationId');
+    const companyId = form.get('companyId');
+    if (companyId && session.role === 'CANDIDATE')
+      throw new ApiError(403, 'Accès CRM refusé', 'FORBIDDEN');
     if (!(file instanceof File))
       throw new ApiError(400, 'Fichier requis', 'VALIDATION_ERROR');
     if (!allowedTypes.has(file.type))
@@ -66,6 +69,12 @@ export async function POST(request: Request) {
       );
     if (!application.success)
       throw new ApiError(400, 'Candidature invalide', 'VALIDATION_ERROR');
+    const company = z
+      .uuid()
+      .nullable()
+      .safeParse(typeof companyId === 'string' && companyId ? companyId : null);
+    if (!company.success || (application.data && company.data))
+      throw new ApiError(400, 'Lien document invalide', 'VALIDATION_ERROR');
 
     const content = Buffer.from(await file.arrayBuffer());
     const storageKey = `database:${randomUUID()}`;
@@ -74,11 +83,12 @@ export async function POST(request: Request) {
       session.organizationId,
       async (sql) => {
         const inserted = await sql<Array<{ id: string }>>`
-        insert into documents (organization_id, owner_id, application_id, name, kind, storage_key, mime_type, size_bytes)
-        select ${session.organizationId}, ${session.id}, a.id, ${file.name}, ${kind}, ${storageKey}, ${file.type}, ${file.size}
+        insert into documents (organization_id, owner_id, application_id, company_id, name, kind, storage_key, mime_type, size_bytes)
+        select ${session.organizationId}, ${session.id}, a.id, c.id, ${file.name}, ${kind}, ${storageKey}, ${file.type}, ${file.size}
         from (select ${application.data}::uuid as id) requested
         left join applications a on a.id = requested.id and a.organization_id = ${session.organizationId}
-        where requested.id is null or a.id is not null
+        left join companies c on c.id = ${company.data}::uuid and c.organization_id = ${session.organizationId}
+        where (requested.id is null or a.id is not null) and (${company.data}::uuid is null or c.id is not null)
         returning id, name, kind, mime_type as "mimeType", size_bytes::int as "sizeBytes", version, created_at as "createdAt"`;
         if (!inserted[0])
           throw new ApiError(404, 'Candidature introuvable', 'NOT_FOUND');

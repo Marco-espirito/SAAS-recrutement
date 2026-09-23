@@ -16,6 +16,8 @@ const updateInput = z
     industry: z.string().trim().max(120).optional(),
     sizeLabel: z.string().trim().max(80).optional(),
     status: z.enum(['PROSPECT', 'ACTIVE', 'PAUSED', 'ARCHIVED']).optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(30).optional(),
+    ownerId: z.uuid().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'Aucune modification');
 
@@ -27,6 +29,16 @@ export async function PATCH(
     const session = await requireSession(['OWNER', 'ADMIN', 'RECRUITER']);
     const { id } = await context.params;
     const body = await readJson(request, updateInput);
+    const requestedOwnerId = body.ownerId;
+    if (requestedOwnerId) {
+      const owner = await tenantTransaction(
+        session.organizationId,
+        (sql) =>
+          sql`select 1 from memberships where organization_id = ${session.organizationId} and user_id = ${requestedOwnerId}`,
+      );
+      if (!owner.length)
+        throw new ApiError(400, 'Propriétaire invalide', 'VALIDATION_ERROR');
+    }
     const rows = await tenantTransaction(
       session.organizationId,
       (sql) => sql<Array<{ id: string }>>`
@@ -35,9 +47,12 @@ export async function PATCH(
           website = coalesce(${body.website || null}, website),
           industry = coalesce(${body.industry ?? null}, industry),
           size_label = coalesce(${body.sizeLabel ?? null}, size_label),
-          status = coalesce(${body.status ?? null}, status), updated_at = now()
+          status = coalesce(${body.status ?? null}, status),
+          tags = case when ${body.tags !== undefined} then ${body.tags ? sql.array(body.tags) : sql.array([])} else tags end,
+          owner_id = case when ${body.ownerId !== undefined} then ${body.ownerId ?? null}::uuid else owner_id end,
+          updated_at = now()
         where id = ${id} and organization_id = ${session.organizationId}
-        returning id, name, website, industry, size_label as "sizeLabel", status, updated_at as "updatedAt"`,
+        returning id, name, website, industry, size_label as "sizeLabel", status, tags, owner_id as "ownerId", updated_at as "updatedAt"`,
     );
     if (!rows[0])
       throw new ApiError(404, 'Entreprise introuvable', 'NOT_FOUND');
