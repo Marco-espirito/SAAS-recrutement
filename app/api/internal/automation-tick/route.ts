@@ -3,10 +3,13 @@ import {
   generateDigestNotifications,
   generateReminderNotifications,
 } from '@/lib/server/notifications';
+import { recordHeartbeat } from '@/lib/server/observability';
 import { processNextOAuthSync } from '@/lib/server/oauth-sync';
 import { runRetentionSweep } from '@/lib/server/retention';
 
 export const maxDuration = 60;
+
+const SERVICE = 'vercel-cron';
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -30,6 +33,7 @@ export async function GET(request: Request) {
     const retention = await runRetentionSweep();
     const reminders = await generateReminderNotifications();
     const digests = await generateDigestNotifications();
+    await recordHeartbeat(SERVICE, 'OK', undefined, { processed, synced });
     return Response.json({
       ok: true,
       processed,
@@ -39,13 +43,15 @@ export async function GET(request: Request) {
       digests,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error(
       JSON.stringify({
         level: 'error',
         service: 'automation-cron',
-        message: error instanceof Error ? error.message : String(error),
+        message,
       }),
     );
+    await recordHeartbeat(SERVICE, 'ERROR', message).catch(() => undefined);
     return Response.json(
       { error: 'Traitement indisponible', processed },
       { status: 500 },

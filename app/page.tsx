@@ -51,6 +51,7 @@ const aNav = [
   [I.ShieldCheck, 'Sécurité'],
   [I.ScrollText, 'Journal d’audit'],
   [I.PlugZap, 'Intégrations'],
+  [I.HeartPulse, 'Santé'],
 ];
 function Sidebar({
   mode,

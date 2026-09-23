@@ -4,8 +4,11 @@ import {
   generateDigestNotifications,
   generateReminderNotifications,
 } from '../lib/server/notifications';
+import { recordHeartbeat } from '../lib/server/observability';
 import { processNextOAuthSync } from '../lib/server/oauth-sync';
 import { runRetentionSweep } from '../lib/server/retention';
+
+const SERVICE = 'docker-worker';
 
 const pause = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -23,6 +26,7 @@ async function main() {
   let lastOAuthSync = 0;
   let lastRetentionSweep = 0;
   let lastReminderSweep = 0;
+  let lastHeartbeat = 0;
   const stop = () => {
     stopping = true;
   };
@@ -77,15 +81,22 @@ async function main() {
         );
         lastReminderSweep = Date.now();
       }
+      if (Date.now() - lastHeartbeat > 60_000) {
+        await recordHeartbeat(SERVICE, 'OK');
+        lastHeartbeat = Date.now();
+      }
       if (!processed) await pause(2_000);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error(
         JSON.stringify({
           level: 'error',
           service: 'automation-worker',
-          message: error instanceof Error ? error.message : String(error),
+          message,
         }),
       );
+      await recordHeartbeat(SERVICE, 'ERROR', message).catch(() => undefined);
+      lastHeartbeat = Date.now();
       await pause(5_000);
     }
   }

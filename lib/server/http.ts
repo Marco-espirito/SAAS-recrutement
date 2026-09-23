@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { ZodType } from 'zod';
 import { getSession, type Role, type SessionUser } from './auth';
 import { env, EnvironmentValidationError } from './env';
+import { log } from './observability';
 
 export class ApiError extends Error {
   constructor(
@@ -70,21 +71,22 @@ export async function requireSession(roles?: Role[]): Promise<SessionUser> {
   return session;
 }
 
-export function handleApiError(error: unknown) {
+export async function handleApiError(error: unknown) {
   if (error instanceof ApiError) {
+    if (error.status >= 500)
+      await log('error', error.message, {
+        code: error.code,
+        status: error.status,
+      });
     return NextResponse.json(
       { error: { code: error.code, message: error.message } },
       { status: error.status },
     );
   }
   if (error instanceof EnvironmentValidationError) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        message: 'Invalid server configuration',
-        fields: error.fields,
-      }),
-    );
+    await log('error', 'Invalid server configuration', {
+      fields: error.fields,
+    });
     return NextResponse.json(
       {
         error: {
@@ -95,13 +97,10 @@ export function handleApiError(error: unknown) {
       { status: 500 },
     );
   }
-  console.error(
-    JSON.stringify({
-      level: 'error',
-      message: 'Unhandled API error',
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
+  await log('error', 'Unhandled API error', {
+    error: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+  });
   return NextResponse.json(
     {
       error: {
