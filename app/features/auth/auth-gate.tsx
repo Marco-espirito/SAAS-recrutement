@@ -330,6 +330,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 />
               </label>
             )}
+            {view === 'register' && (
+              <small className="auth-legal">
+                En créant un espace, vous acceptez les conditions d’utilisation
+                et la politique de confidentialité de Nexora.
+              </small>
+            )}
             {error && (
               <div className="auth-alert" role="alert">
                 {error}

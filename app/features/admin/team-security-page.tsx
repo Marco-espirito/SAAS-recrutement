@@ -218,6 +218,26 @@ export function SecurityPage({ toast }: { toast: (message: string) => void }) {
   const user = useCurrentUser();
   const [secret, setSecret] = useState('');
   const [error, setError] = useState('');
+  async function deleteAccount() {
+    if (
+      !window.confirm(
+        'Supprimer définitivement votre compte et vos données personnelles ? Cette action est irréversible.',
+      )
+    )
+      return;
+    try {
+      const response = await fetch('/api/account', { method: 'DELETE' });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error?.message ?? 'Suppression impossible');
+      }
+      window.location.assign('/');
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Suppression impossible',
+      );
+    }
+  }
   async function submit(
     path: string,
     event: SyntheticEvent<HTMLFormElement>,
@@ -361,6 +381,28 @@ export function SecurityPage({ toast }: { toast: (message: string) => void }) {
             }
           >
             Invalider toutes les sessions
+          </button>
+        </section>
+        <section className="panel settings-card">
+          <I.Download />
+          <h3>Vos données</h3>
+          <p>
+            Exportez une copie de vos données personnelles (RGPD) ou supprimez
+            définitivement votre compte.
+          </p>
+          <a
+            className="action"
+            href="/api/account/export"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Exporter mes données
+          </a>
+          <button
+            className="action danger"
+            onClick={() => void deleteAccount()}
+          >
+            <I.Trash2 /> Supprimer mon compte
           </button>
         </section>
       </section>

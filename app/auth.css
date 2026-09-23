@@ -91,6 +91,12 @@
 .auth-card button:disabled {
   opacity: 0.6;
 }
+.auth-legal {
+  display: block;
+  font-size: 11px;
+  color: #9d97c9;
+  line-height: 1.4;
+}
 .auth-alert {
   padding: 11px;
   border: 1px solid #ff8d9c55;

@@ -11,6 +11,7 @@ import {
 } from '@/lib/server/security';
 import { emailProviderConfigured, sendSystemEmail } from '@/lib/server/email';
 import { env } from '@/lib/server/env';
+import { CURRENT_POLICY_VERSION } from '@/lib/domain/legal';
 
 const registration = z.object({
   name: z.string().trim().min(2).max(100),
@@ -61,6 +62,11 @@ export async function POST(request: Request) {
       const userId = users[0].id;
       const role = body.accountType === 'CANDIDATE' ? 'CANDIDATE' : 'OWNER';
       await sql`insert into memberships (organization_id, user_id, role) values (${organizationId}, ${userId}, ${role})`;
+      await sql`select set_config('app.organization_id', ${organizationId}, true)`;
+      await sql`insert into user_consents (organization_id, user_id, type, version, status)
+        values
+          (${organizationId}, ${userId}, 'TERMS_OF_SERVICE', ${CURRENT_POLICY_VERSION}, 'GRANTED'),
+          (${organizationId}, ${userId}, 'PRIVACY_POLICY', ${CURRENT_POLICY_VERSION}, 'GRANTED')`;
       if (configuration.REQUIRE_EMAIL_VERIFICATION)
         await sql`insert into email_verification_tokens (token_hash, user_id, expires_at)
           values (${hashToken(verificationToken)}, ${userId}, now() + interval '24 hours')`;

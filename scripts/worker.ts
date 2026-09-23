@@ -1,6 +1,7 @@
 import { processNextAutomationRun } from '../lib/server/automation-engine';
 import { db } from '../lib/server/db';
 import { processNextOAuthSync } from '../lib/server/oauth-sync';
+import { runRetentionSweep } from '../lib/server/retention';
 
 const pause = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -16,6 +17,7 @@ async function main() {
   let stopping = false;
   let lastCleanup = 0;
   let lastOAuthSync = 0;
+  let lastRetentionSweep = 0;
   const stop = () => {
     stopping = true;
   };
@@ -36,6 +38,18 @@ async function main() {
           set status = 'FAILED', error = coalesce(error, 'Nombre maximal de reprises atteint'), finished_at = now()
           where status = 'RUNNING' and attempts >= 3 and locked_at < now() - interval '15 minutes'`;
         lastCleanup = Date.now();
+      }
+      if (Date.now() - lastRetentionSweep > 24 * 60 * 60 * 1000) {
+        const result = await runRetentionSweep();
+        console.log(
+          JSON.stringify({
+            level: 'info',
+            service: 'automation-worker',
+            message: 'Retention sweep completed',
+            ...result,
+          }),
+        );
+        lastRetentionSweep = Date.now();
       }
       if (!processed) await pause(2_000);
     } catch (error) {

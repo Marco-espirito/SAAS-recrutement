@@ -1,5 +1,6 @@
 import { processNextAutomationRun } from '@/lib/server/automation-engine';
 import { processNextOAuthSync } from '@/lib/server/oauth-sync';
+import { runRetentionSweep } from '@/lib/server/retention';
 
 export const maxDuration = 60;
 
@@ -22,7 +23,8 @@ export async function GET(request: Request) {
       if (!(await processNextOAuthSync())) break;
       synced++;
     }
-    return Response.json({ ok: true, processed, synced });
+    const retention = await runRetentionSweep();
+    return Response.json({ ok: true, processed, synced, retention });
   } catch (error) {
     console.error(
       JSON.stringify({
